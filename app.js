@@ -722,6 +722,9 @@ feed.addEventListener('contextmenu', e => { if (e.target.closest('[data-act=narr
 feed.addEventListener('dblclick', e => { if (!('ontouchstart' in window)) { clearTimeout(tapT); doubleLike(e.clientX, e.clientY); } });
 document.addEventListener('keydown', e => { if (!$('#sheet').classList.contains('hidden')) return; if (e.key === 'ArrowDown' || e.key === ' ') go(1); if (e.key === 'ArrowUp') go(-1); });
 window.addEventListener('resize', () => { H = window.innerHeight; try { applyTheme(); } catch (e) {} layout(0, false); });
+// iOS Safari: toolbars and the home-indicator area change the visible height without a normal resize
+try { if (window.visualViewport) visualViewport.addEventListener('resize', () => { const h = Math.round(visualViewport.height); if (Math.abs(h - H) > 2) { H = window.innerHeight; layout(0, false); } }); } catch (e) {}
+window.addEventListener('orientationchange', () => setTimeout(() => { H = window.innerHeight; layout(0, false); }, 300));
 
 function haptic() { hap(2); }
 function hap(k) { if (!S.haptics) return; try { if (A && A.hapticKind) A.hapticKind(k); else if (A && A.haptic) A.haptic(); else if (navigator.vibrate) navigator.vibrate(k === 1 ? 18 : 6); } catch (e) {} }
