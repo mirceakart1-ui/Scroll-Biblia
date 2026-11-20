@@ -1065,6 +1065,24 @@ function occurrences(code) {
   })));
   return OCC[code] = { gs: out, words: Object.entries(words).sort((a, b) => b[1] - a[1]) };
 }
+let extCbs = null;
+function loadExt(cb) {
+  if (window.LEX_EXT) { cb && cb(); return; }
+  if (extCbs) { cb && extCbs.push(cb); return; }
+  extCbs = cb ? [cb] : []; const sc = document.createElement('script'); sc.src = 'lex_ext.js';
+  sc.onload = () => { const c = extCbs; extCbs = null; c.forEach(f => f()); };
+  sc.onerror = () => { extCbs = null; toast(L('Lexiconul extins nu s-a putut încărca', 'Extended lexicon failed to load')); };
+  document.head.appendChild(sc);
+}
+/* extended lexicon (STEPBible: abridged BDB for Hebrew, Abbott-Smith for Greek; CC BY) */
+function extHtml(code) {
+  const ex = (window.LEX_EXT || {})[code]; const l = S.lang === 'en' ? 'en' : 'ro';
+  if (!ex || !ex.length) return '<p class="hint">' + L('Nu există explicație extinsă pentru acest cuvânt.', 'No extended entry for this word.') + '</p>';
+  return ex.map(([gl, h]) => '<div class="xs">' + (ex.length > 1 ? '<b class="xg">' + esc(gl) + '</b>' : '') + '<div class="xh">' +
+    h.replace(/<a data-r="(\d+)\.(\d+)\.(\d+)">[^<]*<\/a>/g, (m, b, c, v) => { b = +b; c = +c - 1; v = +v - 1; if (b >= NB || c >= VC[b].length || v >= VC[b][c]) return ''; const g = G(b, c, v); return '<a class="vref" data-g="' + g + '">' + esc(label(g, l)) + '</a>'; })
+     .replace(/\b([HG])(\d{1,4})\b(?![^<]*>)/g, '<span class="sref" data-s="$1$2">$1$2</span>') + '</div></div>').join('') +
+    '<p class="xsrc">' + (code[0] === 'H' ? 'BDB (abr.)' : 'Abbott-Smith') + ' · STEPBible.org · CC BY · ' + L('în engleză', 'English') + '</p>';
+}
 function openWord(code, push, fromG) {
   if (!window.LEX_H) { loadLex(() => openWord(code, push, fromG)); return; }
   const e = lexEntry(code); const l = S.lang === 'en' ? 'en' : 'ro';
@@ -1076,12 +1094,16 @@ function openWord(code, push, fromG) {
   h += '<button class="btn ghost" id="wnt">' + I.pen + ' ' + L('Pune explicația în notițe', 'Add explanation to notes') + '</button>';
   h += T('<div class="sec">Semnificație și origine</div><p class="wdef">') + linkify(meaning(code, e) || '—') + '</p>';
   if (e[4]) h += T('<div class="sec">Cum e tradus în KJV</div><p class="wdef">') + linkify(e[4]) + '</p>';
+  h += '<div class="sec">' + L('Explicație pe larg (lexicon)', 'In-depth (lexicon)') + '</div><div class="wext" id="wext"><p class="hint">' + L('Se încarcă…', 'Loading…') + '</p></div>';
   if (oc.words.length) h += T('<div class="sec">Cuvinte englezești folosite</div><div class="chips big">') + oc.words.slice(0, 14).map(([w, c]) => '<span class="chip ghost">' + esc(w) + ' <b>' + c + '</b></span>').join('') + '</div>';
   h += T('<div class="sec">Unde mai apare</div>') + listItems(oc.gs.slice(0, 60), T('Nicio apariție.'), false);
   if (oc.gs.length > 60) h += T('<div class="hint">Primele 60 din ') + oc.gs.length + '.</div>';
   openSheet((heb ? T('Ebraică · ') : T('Greacă · ')) + e[1], h, body => {
     body.querySelector('#wnt').onclick = () => stAddFromSheet({ type: 'w', code, g: fromG });
     body.querySelectorAll('a[data-s]').forEach(a => a.onclick = () => openWord(a.dataset.s, true));
+    loadExt(() => { const w = body.querySelector('#wext'); if (!w) return; w.innerHTML = extHtml(code);
+      w.querySelectorAll('.sref').forEach(a => a.onclick = () => openWord(a.dataset.s, true));
+      w.querySelectorAll('.vref').forEach(a => a.onclick = () => openVerse(+a.dataset.g, true)); });
     body.querySelectorAll('.item').forEach(it => it.onclick = () => openVerse(+it.dataset.g, true));
     if (fromG != null) body.querySelectorAll('.item').forEach(it => { if (+it.dataset.g === fromG) it.classList.add('cur'); });
   }, push || sheetOpen());
@@ -1702,11 +1724,19 @@ function stStrongPv(code, g) {
   pv.innerHTML = '<div class="st-pvc"><div class="st-pvh"><b>' + (heb ? L('Ebraică', 'Hebrew') : L('Greacă', 'Greek')) + ' · ' + code + '</b><button class="st-ib" data-pv="x">' + I.close + '</button></div>' +
     '<div class="st-lex"><span class="' + (heb ? 'heb' : 'grk') + '">' + esc(e[0]) + '</span><i>' + esc(e[1]) + (e[2] ? ' · ' + esc(e[2]) : '') + '</i></div>' +
     '<div class="st-pvd">' + sLink(def || '—') + (e[4] ? '<div class="st-kjv"><small>KJV</small> ' + sLink(e[4]) + '</div>' : '') + '</div>' +
-    '<div class="st-pvb"><button data-pv="copy">' + I.copy + L('Copiază', 'Copy') + '</button><button data-pv="more">' + I.book + L('Mai mult', 'More') + '</button><button data-pv="add" class="pri">' + I.plus + L('În foaie', 'To sheet') + '</button></div></div>';
+    '<div class="st-ext hidden"></div><div class="st-pvb"><button data-pv="copy">' + I.copy + L('Copiază', 'Copy') + '</button><button data-pv="ext">' + I.book + L('Pe larg', 'In depth') + '</button><button data-pv="more">' + I.search + L('Apariții', 'Occurrences') + '</button><button data-pv="add" class="pri">' + I.plus + L('În foaie', 'To sheet') + '</button></div></div>';
   $('#study').appendChild(pv); hap(0);
   pv.onclick = ev => {
     const sr = ev.target.closest('.sref'); if (sr) { stStrongPv(sr.dataset.s); return; }
+    const vr = ev.target.closest('.vref'); if (vr) { stPreview(+vr.dataset.g, 0); return; }
     const b = ev.target.closest('[data-pv]');
+    if (b && b.dataset.pv === 'ext') {
+      const box = pv.querySelector('.st-ext');
+      if (!box.classList.contains('hidden')) { box.classList.add('hidden'); b.classList.remove('on'); return; }
+      box.innerHTML = '<p class="st-hint">' + L('Se încarcă…', 'Loading…') + '</p>'; box.classList.remove('hidden'); b.classList.add('on'); hap(0);
+      loadExt(() => { const oc = occurrences(code); box.innerHTML = '<div class="xocc">' + L('Apare în ', 'Appears in ') + oc.gs.length + L(' versete (KJV)', ' verses (KJV)') + '</div>' + extHtml(code); box.scrollIntoView({ block: 'nearest' }); });
+      return;
+    }
     if (!b) { if (!ev.target.closest('.st-pvc')) stClosePv(); return; }
     const k = b.dataset.pv; stClosePv();
     if (k === 'add') stInsert({ type: 'w', code, g });
@@ -2093,7 +2123,7 @@ window.addEventListener('resize', () => { if (STUDY.open) { $('#study').classNam
 updateTopicTab(); setMode('read'); window.__ready = true; try { stAutoStart(); } catch (e) {}
 if (WEB && 'serviceWorker' in navigator && location.protocol === 'https:') { try { navigator.serviceWorker.register('sw.js').catch(() => {}); } catch (e) {} }
 if (WEB && IOS && !STANDALONE && !S.instHint) { S.instHint = 1; persist(); setTimeout(() => toast(UI_EN ? 'Tip: ☰ → Install on iPhone' : 'Sfat: ☰ → Instalează pe iPhone'), 2500); }
-window.__t = { openStudy, closeStudy, stInsert, closeSheet, closePlans, openPlanDetail, openVerse, openWord, requestA11y }; window.__dbg = () => ({ mode, fy: FY.i, n: FY.items.length, pl: PL.i, wl: wheelLock - Date.now() }); syncGate(); try { A && A.ready && A.ready(); } catch (e) {}
+window.__t = { openWord, openStudy, closeStudy, stInsert, closeSheet, closePlans, openPlanDetail, openVerse, openWord, requestA11y }; window.__dbg = () => ({ mode, fy: FY.i, n: FY.items.length, pl: PL.i, wl: wheelLock - Date.now() }); syncGate(); try { A && A.ready && A.ready(); } catch (e) {}
 setTimeout(() => loadLex(), 2500);
 })();
 
