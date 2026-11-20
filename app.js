@@ -34,6 +34,10 @@ const I = {
   pen: '<svg viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></svg>',
   link: '<svg viewBox="0 0 24 24"><path d="M10 14a4.5 4.5 0 0 0 6.4 0l3-3a4.5 4.5 0 0 0-6.4-6.4l-1.2 1.2"/><path d="M14 10a4.5 4.5 0 0 0-6.4 0l-3 3a4.5 4.5 0 0 0 6.4 6.4l1.2-1.2"/></svg>',
   copy: '<svg viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2.5"/><path d="M16 8V6.5A2.5 2.5 0 0 0 13.5 4h-7A2.5 2.5 0 0 0 4 6.5v7A2.5 2.5 0 0 0 6.5 16H8"/></svg>',
+  sun: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M4.6 4.6l1.4 1.4M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4L6 18M18 6l1.4-1.4"/></svg>',
+  moon: '<svg viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5z"/></svg>',
+  scroll: '<svg viewBox="0 0 24 24"><rect x="6" y="2.5" width="12" height="19" rx="2.5"/><path d="M9.5 9.5L12 7l2.5 2.5M9.5 14.5L12 17l2.5-2.5"/></svg>',
+  bookplus: '<svg viewBox="0 0 24 24"><path d="M4 5.5A2 2 0 0 1 6 3.5h11v13H6a2 2 0 0 0-2 2z"/><path d="M4 18.5a2 2 0 0 0 2 2h11"/><path d="M10.5 7v6M7.5 10h6"/></svg>',
   plus: '<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>',
   dots: '<svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="19" cy="12" r="1.6" fill="currentColor"/></svg>',
   trash: '<svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>',
@@ -1519,6 +1523,9 @@ const sp = $('#splash'); sp.style.opacity = 0; setTimeout(() => sp.remove(), 500
 if (UI_EN) { document.documentElement.lang = 'en'; const tr = document.querySelector('[data-mode=read]'); tr && (tr.textContent = 'Read'); const tp = document.querySelector('[data-mode=plan]'); tp && (tp.textContent = 'Plan'); }
 try { A && A.setUiLang && A.setUiLang(UI_EN ? 'en' : 'ro'); } catch (e) {}
 /* ================= STUDY MODE (notes + drag & drop) ================= */
+const ST_SUN = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.2M12 19.3v2.2M4.6 4.6l1.6 1.6M17.8 17.8l1.6 1.6M2.5 12h2.2M19.3 12h2.2M4.6 19.4l1.6-1.6M17.8 6.2l1.6-1.6"/></svg>';
+const ST_MOON = '<svg viewBox="0 0 24 24"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z"/></svg>';
+const ST_FEED = '<svg viewBox="0 0 24 24"><rect x="6" y="3" width="12" height="18" rx="2.5"/><path d="M9.5 8.5h5M9.5 11.5h5M9.5 14.5h3"/><path d="M3 9v6M21 9v6"/></svg>';
 const STUDY = { open: false, pane: 'notes', g: null, sel: [], range: null, saveT: 0 };
 const ST_HL = [['#ffd84d', L('Galben', 'Yellow')], ['#7be08a', L('Verde', 'Green')], ['#7cc4ff', L('Albastru', 'Blue')], ['#ff9cc4', L('Roz', 'Pink')], ['#ffb45c', L('Portocaliu', 'Orange')]];
 const ST_FG = [['', L('Implicit', 'Default')], ['#e0524f', L('Roșu', 'Red')], ['#3d86e8', L('Albastru', 'Blue')], ['#2f9e5b', L('Verde', 'Green')], ['#c08a12', L('Auriu', 'Gold')], ['#9a5de0', L('Mov', 'Purple')]];
@@ -1578,6 +1585,9 @@ function openStudy(g) {
       '<button class="st-ib" id="stExit" aria-label="' + L('Închide', 'Close') + '">' + I.back + '</button>' +
       '<button class="st-title" id="stList"><span>' + esc(stTitle(n)) + '</span><i>▾</i></button>' +
       '<div class="st-seg"><button data-pane="bible" title="' + L('Doar Biblia', 'Bible only') + '">' + I.book + '<span>' + L('Biblia', 'Bible') + '</span></button><button data-pane="split" title="' + L('Ecran împărțit', 'Split view') + '"><svg viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><path d="M12 4.5v15"/></svg><span>' + L('Ambele', 'Both') + '</span></button><button data-pane="notes" title="' + L('Doar notițele', 'Notes only') + '">' + I.pen + '<span>' + L('Notițe', 'Notes') + '</span></button></div>' +
+      '<button class="st-ib" id="stAddBib" title="' + L('Adaugă o Biblie (fereastră)', 'Add a Bible window') + '">' + I.bookplus + '</button>' +
+      '<button class="st-ib" id="stTheme" title="' + L('Zi / Noapte', 'Day / Night') + '">' + (isDay() ? I.moon : I.sun) + '</button>' +
+      '<button class="st-ib" id="stFeed" title="' + L('Biblia scroll', 'Scroll Bible') + '">' + I.scroll + '</button>' +
       '<button class="st-ib" id="stNew" aria-label="' + L('Foaie nouă', 'New sheet') + '">' + I.plus + '</button>' +
       '<button class="st-ib" id="stMore" aria-label="' + L('Mai mult', 'More') + '">' + I.dots + '</button>' +
     '</div>' +
@@ -1625,13 +1635,16 @@ function stSetPane(p, temp) {
 }
 function stBindTop() {
   $('#stExit').onclick = () => { hap(0); closeStudy(); };
+  $('#stFeed').onclick = () => { hap(0); closeStudy(); };
+  $('#stTheme').onclick = () => { S.mode = isDay() ? 'night' : 'day'; persist(); applyTheme(); hap(0); $('#stTheme').innerHTML = isDay() ? I.moon : I.sun; };
+  $('#stAddBib').onclick = () => stAddFloat();
   $('#stList').onclick = stOpenList;
   $('#stNew').onclick = () => stNewSheet();
   $('#stMore').onclick = stMore;
   $('#study').querySelectorAll('[data-pane]').forEach(b => b.onclick = () => { hap(0); stSetPane(b.dataset.pane); });
   $('#stPrev').onclick = () => stChapter(-1);
   $('#stNext').onclick = () => stChapter(1);
-  $('#stBook').onclick = stPickBook;
+  $('#stBook').onclick = () => stPickBook();
   $('#stFind').onclick = () => stToggleFind();
   $('#stQx').onclick = () => stToggleFind(false);
   { let t = 0; const q = $('#stQ'); q.oninput = () => { clearTimeout(t); t = setTimeout(stRunFind, 250); }; q.onkeydown = e => { if (e.key === 'Enter') { clearTimeout(t); stRunFind(); q.blur(); } }; }
@@ -1744,6 +1757,54 @@ function stStrongPv(code, g) {
     else if (k === 'copy') stCopy(e[0] + ' (' + e[1] + ', ' + code + ') — ' + def + (e[4] ? '\nKJV: ' + e[4] : ''));
   };
 }
+function stAddFloat(g0) {
+  const st = $('#study'); const n = st.querySelectorAll('.st-float').length;
+  const W = { g: g0 != null ? g0 : STUDY.g, lang: stLang() === 'ro' ? 'en' : 'ro' };
+  const f = document.createElement('div'); f.className = 'st-float';
+  const sw = st.clientWidth, sh = st.clientHeight, w = Math.min(420, sw - 24), h = Math.min(480, sh * .6);
+  f.style.width = w + 'px'; f.style.height = h + 'px';
+  f.style.left = Math.max(8, Math.min(sw - w - 8, sw / 2 - w / 2 + n * 26)) + 'px'; f.style.top = Math.max(60, Math.min(sh - h - 8, 90 + n * 26)) + 'px';
+  f.innerHTML = '<div class="stf-h"><span class="stf-grip">⠿</span><button class="stf-b" data-f="prev">‹</button><button class="stf-t" data-f="book"></button><button class="stf-b" data-f="next">›</button><button class="stf-l" data-f="lang"></button><button class="stf-b" data-f="x">' + I.close + '</button></div><div class="stf-v"></div><div class="stf-rz"></div>';
+  st.appendChild(f); hap(1);
+  const render = () => {
+    const r = ref(W.g), vs = BIB[W.lang][r.b][r.c];
+    f.querySelector('.stf-t').textContent = BK[W.lang][r.b] + ' ' + (r.c + 1);
+    f.querySelector('.stf-l').textContent = W.lang === 'ro' ? 'RO' : 'EN';
+    const box = f.querySelector('.stf-v');
+    box.innerHTML = vs.map((t, i) => { const g = G(r.b, r.c, i); return '<div class="sv" data-g="' + g + '"><sup>' + (i + 1) + '</sup><span class="t">' + esc(txt(g, W.lang)) + '</span></div>'; }).join('');
+    box.scrollTop = 0; if (r.v > 0) { const t = box.querySelector('[data-g="' + W.g + '"]'); if (t) setTimeout(() => { box.scrollTop = t.offsetTop - 40; t.classList.add('flash'); }, 30); }
+  };
+  const front = () => { st.querySelectorAll('.st-float').forEach(x => x.style.zIndex = 8); f.style.zIndex = 9; };
+  f.addEventListener('mousedown', front); f.addEventListener('touchstart', front, { passive: true });
+  f.onclick = e => {
+    if (STUDY.dragJustEnded) return;
+    const b = e.target.closest('[data-f]');
+    if (b) {
+      const k = b.dataset.f, r = ref(W.g);
+      if (k === 'x') { f.remove(); hap(0); return; }
+      if (k === 'lang') { W.lang = W.lang === 'ro' ? 'en' : 'ro'; render(); return; }
+      if (k === 'book') { stPickBook(g => { W.g = g; render(); }, W.g); return; }
+      let bb = r.b, c = r.c + (k === 'next' ? 1 : -1);
+      if (c < 0) { if (!bb) return; bb--; c = VC[bb].length - 1; } else if (c >= VC[bb].length) { if (bb === NB - 1) return; bb++; c = 0; }
+      W.g = G(bb, c, 0); hap(0); render(); return;
+    }
+    const v = e.target.closest('.sv'); if (v) stPreview(+v.dataset.g, 0);
+  };
+  // move window by its header, resize from the corner (touch + mouse)
+  const drag = (el, onMove) => {
+    let sx, sy, ox, oy, on = false;
+    const start = (x, y) => { on = true; sx = x; sy = y; ox = f.offsetLeft; oy = f.offsetTop; ow = f.offsetWidth; oh = f.offsetHeight; front(); };
+    let ow, oh;
+    const mv = (x, y) => { if (!on) return; onMove(x - sx, y - sy, ox, oy, ow, oh); };
+    el.addEventListener('touchstart', e => { if (e.target.closest('button')) return; const t = e.touches[0]; start(t.clientX, t.clientY); }, { passive: true });
+    el.addEventListener('touchmove', e => { if (!on) return; e.preventDefault(); const t = e.touches[0]; mv(t.clientX, t.clientY); }, { passive: false });
+    el.addEventListener('touchend', () => on = false);
+    el.addEventListener('mousedown', e => { if (e.target.closest('button')) return; e.preventDefault(); start(e.clientX, e.clientY); const mm = ev => mv(ev.clientX, ev.clientY), mu = () => { on = false; document.removeEventListener('mousemove', mm); document.removeEventListener('mouseup', mu); }; document.addEventListener('mousemove', mm); document.addEventListener('mouseup', mu); });
+  };
+  drag(f.querySelector('.stf-h'), (dx, dy, ox, oy) => { f.style.left = Math.max(-f.offsetWidth + 80, Math.min(st.clientWidth - 80, ox + dx)) + 'px'; f.style.top = Math.max(0, Math.min(st.clientHeight - 44, oy + dy)) + 'px'; });
+  drag(f.querySelector('.stf-rz'), (dx, dy, ox, oy, ow, oh) => { f.style.width = Math.max(240, ow + dx) + 'px'; f.style.height = Math.max(180, oh + dy) + 'px'; });
+  render();
+}
 function stToggleFind(on) {
   const box = $('#stFindBox'); if (!box) return; const show = on == null ? box.classList.contains('hidden') : on;
   box.classList.toggle('hidden', !show); $('#stVerses').classList.toggle('hidden', show);
@@ -1780,13 +1841,13 @@ function stChapter(d) {
   if (c < 0) { if (b === 0) return; b--; c = VC[b].length - 1; } else if (c >= VC[b].length) { if (b === NB - 1) return; b++; c = 0; }
   STUDY.g = G(b, c, 0); STUDY.sel = []; hap(0); stRenderBible();
 }
-function stPickBook() {
-  const l = stLang(), cb = ref(STUDY.g).b; let h = '<div class="sec">' + L('Vechiul Testament', 'Old Testament') + '</div><div class="grid">';
+function stPickBook(onPick, cur) {
+  const l = stLang(), cb = ref(cur != null ? cur : STUDY.g).b; let h = '<div class="sec">' + L('Vechiul Testament', 'Old Testament') + '</div><div class="grid">';
   for (let b = 0; b < NB; b++) { if (b === 39) h += '</div><div class="sec">' + L('Noul Testament', 'New Testament') + '</div><div class="grid">'; h += '<button data-b="' + b + '" class="' + (b === cb ? 'cur' : '') + '">' + esc(BK[l][b]) + '</button>'; }
   h += '</div>';
   openSheet(L('Alege cartea', 'Choose book'), h, body => body.querySelectorAll('[data-b]').forEach(x => x.onclick = () => {
     const b = +x.dataset.b; let hh = '<div class="grid ch">'; for (let c = 0; c < VC[b].length; c++) hh += '<button data-c="' + c + '">' + (c + 1) + '</button>'; hh += '</div>';
-    openSheet(BK[l][b], hh, bd => bd.querySelectorAll('[data-c]').forEach(y => y.onclick = () => { closeSheet(); STUDY.g = G(b, +y.dataset.c, 0); STUDY.sel = []; stRenderBible(); }), true);
+    openSheet(BK[l][b], hh, bd => bd.querySelectorAll('[data-c]').forEach(y => y.onclick = () => { closeSheet(); if (typeof onPick === 'function') { onPick(G(b, +y.dataset.c, 0)); return; } STUDY.g = G(b, +y.dataset.c, 0); STUDY.sel = []; stRenderBible(); }), true);
   }));
 }
 function stXrefs(g, row) {
@@ -1999,7 +2060,7 @@ function stAddFromSheet(p) {
 /* ---------- drag & drop (touch + mouse) ---------- */
 function stBindDrag() {
   const study = $('#study'); let D = null, lpT = 0;
-  const srcOf = t => t.closest('[data-va],[data-back],.st-pv,.sref,[data-fb]') ? null : (t.closest('.st-doc .h') || t.closest('.swr') || t.closest('.sxr') || t.closest('.sv'));
+  const srcOf = t => t.closest('[data-va],[data-back],.st-pv,.sref,[data-fb],.stf-h,.stf-rz') ? null : (t.closest('.st-doc .h') || t.closest('.swr') || t.closest('.sxr') || t.closest('.sv'));
   const payloadOf = el => {
     if (el.classList.contains('h')) return { type: 'move', el: el.parentNode, label: (el.parentNode.querySelector('.nr') || el.parentNode).textContent };
     if (el.classList.contains('sxr')) { const g0 = +el.dataset.g, sp = +el.dataset.sp; const gs = []; for (let k = 0; k <= sp; k++) gs.push(g0 + k); return { type: 'v', gs, label: stRangeLabel(gs, stLang()) }; }
@@ -2010,7 +2071,9 @@ function stBindDrag() {
   const start = (el, x, y) => {
     D = { p: payloadOf(el), src: el, x0: x, y0: y, moved: false, nav: el.classList.contains('sxr') }; hap(1);
     const gh = $('#stGhost'); gh.textContent = (D.p.type === 'move' ? '⠿ ' : '＋ ') + D.p.label; if (!D.nav) gh.classList.remove('hidden');
-    el.classList.add('dragging'); move(x, y);
+    el.classList.add('dragging');
+    if (D.p.type === 'move') { let tr = $('#stTrash'); if (!tr) { tr = document.createElement('div'); tr.id = 'stTrash'; tr.innerHTML = I.trash + '<span>' + L('Trage aici ca să ștergi', 'Drop here to delete') + '</span>'; study.appendChild(tr); } tr.classList.remove('hot'); tr.classList.add('show'); }
+    move(x, y);
   };
   const dropTarget = (x, y) => {
     const doc = $('#stDoc'), paper = $('#stPaper'); const pr = paper.getBoundingClientRect();
@@ -2024,7 +2087,9 @@ function stBindDrag() {
     if (!D.moved && (Math.abs(x - D.x0) > 16 || Math.abs(y - D.y0) > 16)) { D.moved = true; if (stView() === 'bible' && D.p.type !== 'move') stSetPane('notes', true); }
     if (D.nav && !D.moved) return;
     const gh = $('#stGhost'); gh.style.transform = 'translate(' + (x - 20) + 'px,' + (y - 34) + 'px)';
-    const t = dropTarget(x, y), ind = $('#stDrop'), paper = $('#stPaper');
+    let t = dropTarget(x, y); const ind = $('#stDrop'), paper = $('#stPaper');
+    const tr = D.p.type === 'move' && $('#stTrash');
+    if (tr) { const r = tr.getBoundingClientRect(); const hot = x > r.left - 20 && x < r.right + 20 && y > r.top - 20 && y < r.bottom + 20; if (hot !== !!D.trash) { D.trash = hot; tr.classList.toggle('hot', hot); if (hot) hap(1); } if (hot) t = null; }
     D.t = t;
     if (t) { const pr = paper.getBoundingClientRect(); ind.style.top = (t.y - pr.top + paper.scrollTop - 3) + 'px'; ind.classList.remove('hidden'); } else ind.classList.add('hidden');
     // auto-scroll near edges
@@ -2034,6 +2099,8 @@ function stBindDrag() {
   const end = () => {
     if (!D) return; clearInterval(D.as);
     $('#stGhost').classList.add('hidden'); $('#stDrop').classList.add('hidden'); D.src.classList.remove('dragging');
+    { const tr = $('#stTrash'); if (tr) tr.classList.remove('show', 'hot'); }
+    if (D.trash) { const el = D.p.el; el.style.transition = 'transform .25s, opacity .25s'; el.style.transform = 'scale(.6)'; el.style.opacity = '0'; setTimeout(() => { el.remove(); stSave(); }, 230); hap(1); toast(L('Șters din foaie', 'Removed from sheet')); STUDY.dragJustEnded = true; setTimeout(() => STUDY.dragJustEnded = false, 350); D = null; return; }
     if (D.nav && !D.moved) { const g = +D.src.dataset.g; D = null; STUDY.dragJustEnded = true; setTimeout(() => STUDY.dragJustEnded = false, 350); stNavTo(g, STUDY.xFrom); return; }
     const t = D.t;
     if (t) {
