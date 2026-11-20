@@ -690,3 +690,41 @@ body{min-height:100%;min-height:-webkit-fill-available;overscroll-behavior:none}
 #feed{bottom:0;height:auto}
 body::after{content:"";position:fixed;left:0;right:0;bottom:0;height:env(safe-area-inset-bottom);background:inherit;pointer-events:none;z-index:-1}
 @supports (height:100dvh){html,body{height:100dvh}}
+/* good night / sleep timer */
+.sl-what button{display:flex;flex-direction:column;align-items:flex-start;gap:2px}
+.sl-what small{opacity:.6;font-size:12px}
+.sleep-now{display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:16px;background:rgba(120,110,200,.14);margin-bottom:8px}
+.sleep-now>svg{width:26px;height:26px;flex:none}
+.sleep-now div{flex:1}.sleep-now small{display:block;opacity:.65}
+.sleep-now .btn{padding:8px 12px;width:auto}
+#sleepChip{position:fixed;left:50%;transform:translateX(-50%);top:calc(env(safe-area-inset-top) + 58px);z-index:25;display:flex;align-items:center;gap:6px;padding:6px 12px;border-radius:999px;background:rgba(40,36,70,.85);color:#d9d4ff;font-size:13px;font-weight:600;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
+#sleepChip svg{width:15px;height:15px}
+#sleepScr{position:fixed;inset:0;z-index:60;background:#000;color:rgba(255,255,255,.42);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 30px;text-align:center}
+#sleepScr .ss-moon svg{width:34px;height:34px;opacity:.35;margin-bottom:22px}
+#sleepScr .ss-v{font-family:"Noto Serif",Georgia,serif;font-size:21px;line-height:1.55;max-width:560px;margin:0;color:rgba(255,255,255,.38)}
+#sleepScr .ss-r{margin-top:16px;font-size:13px;letter-spacing:.5px;opacity:.7}
+#sleepScr .ss-b{display:flex;gap:10px;margin-top:34px;opacity:0;transition:opacity .3s;pointer-events:none}
+#sleepScr.show-b .ss-b{opacity:1;pointer-events:auto}
+#sleepScr .ss-b button{padding:10px 16px;border-radius:999px;background:rgba(255,255,255,.08);color:rgba(255,255,255,.7);font-size:14px}
+/* reminders */
+.rem-row{display:flex;align-items:center;gap:10px;padding:12px 0;border-bottom:.5px solid rgba(255,255,255,.08)}
+.rem-t{flex:1}.rem-t b{display:block;font-size:15.5px}.rem-t small{opacity:.55;font-size:12.5px}
+.rem-row input[type=time]{background:rgba(255,255,255,.08);border:0;border-radius:10px;color:inherit;padding:8px 10px;font-size:15px;font-family:inherit}
+html.day .rem-row input[type=time]{background:rgba(0,0,0,.06)}
+.sl-what,.sl-dur{display:flex;flex-wrap:wrap;gap:8px}
+.sl-opt{padding:10px 14px;border-radius:14px;background:rgba(255,255,255,.07);color:inherit;font-size:14.5px;font-weight:500;text-align:left;border:1px solid transparent}
+html.day .sl-opt{background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.06)}
+.sl-opt.on{border-color:#ffd166;background:rgba(255,209,102,.16)}
+html.day .sl-opt.on{border-color:#d9982a;background:rgba(217,152,42,.12)}
+.sl-what .sl-opt{flex:1 1 40%}
+.rem-h{font-weight:600;font-size:15px;opacity:.8;font-variant-numeric:tabular-nums}
+html .sw.on{background:#34c759!important}
+#btnSleep{position:fixed;left:10px;bottom:calc(178px + env(safe-area-inset-bottom));z-index:9;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:11px;width:58px;filter:drop-shadow(0 2px 6px rgba(0,0,0,.4));color:inherit}
+#btnSleep svg{width:28px;height:28px}
+#btnSleep.on{color:#b9b0ff}#btnSleep.on svg{fill:rgba(185,176,255,.2)}
+html.tab #btnSleep{left:28px}
+#btnSleep{transition:opacity .5s ease}
+html.calm #btnSleep,html.sheeted #btnSleep,html.studying #btnSleep{opacity:0}
+html.studying #btnSleep{visibility:hidden}
+html.day #btnSleep{filter:none}
+html.day #btnSleep.on{color:#5b4fc9}html.day #btnSleep.on svg{fill:rgba(91,79,201,.15)}

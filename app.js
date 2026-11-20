@@ -38,6 +38,7 @@ const I = {
   moon: '<svg viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5z"/></svg>',
   scroll: '<svg viewBox="0 0 24 24"><rect x="6" y="2.5" width="12" height="19" rx="2.5"/><path d="M9.5 9.5L12 7l2.5 2.5M9.5 14.5L12 17l2.5-2.5"/></svg>',
   bookplus: '<svg viewBox="0 0 24 24"><path d="M4 5.5A2 2 0 0 1 6 3.5h11v13H6a2 2 0 0 0-2 2z"/><path d="M4 18.5a2 2 0 0 0 2 2h11"/><path d="M10.5 7v6M7.5 10h6"/></svg>',
+  bell: '<svg viewBox="0 0 24 24"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/></svg>',
   plus: '<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>',
   dots: '<svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="19" cy="12" r="1.6" fill="currentColor"/></svg>',
   trash: '<svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>',
@@ -240,7 +241,8 @@ function narratorUrl(g, l) { const r = ref(g); const v = narrVer(l); return 'htt
 function openNarrVoices() {
   const sec = l => '<div class="sec">' + (l === 'ro' ? T('🇷🇴 Română') : '🇬🇧 English') + '</div>' + NARR_VERS[l].map(v => { const on = narrVer(l).ab === v.ab; return '<div class="vrow ' + (on ? 'on' : '') + '" data-nl="' + l + '" data-nv="' + v.ab + '"><span class="chk">' + (on ? '✓' : '') + '</span><span class="bt"><b>' + v.t + '</b><small>' + v.d + '</small></span><button class="vplay" data-pl="' + l + '" data-pv="' + v.ab + '">▶</button></div>'; }).join('');
   const h = T('<p class="hint" style="margin-top:0">YouVersion are o singură înregistrare pentru fiecare traducere, așa că alegi între înregistrări diferite. ▶ pornește naratorul cu ea de la versetul curent.</p>') + sec('ro') + sec('en') + T('<p class="hint">Ține apăsat pe 🎧 Audio oricând ca să revii aici.</p>');
-  openSheet(T('Vocea naratorului'), h, body => {
+  openSheet(T('Vocea naratorului'), '<button class="btn" id="toSleep" style="margin-bottom:12px">' + I.moon + ' ' + L('Noapte bună · timer de somn', 'Good night · sleep timer') + '</button>' + h, body => {
+    body.querySelector('#toSleep').onclick = () => openSleep(true);
     const pick = (l, ab) => { S.narrVer = S.narrVer || {}; S.narrVer[l] = ab; persist(); haptic(); };
     body.querySelectorAll('.vrow').forEach(r => r.onclick = e => { if (e.target.closest('.vplay')) return; pick(r.dataset.nl, r.dataset.nv); sheetStack.pop(); openNarrVoices(); if (NARR.on) { const g = curG(); narrStop(); narrStart(g); } });
     body.querySelectorAll('.vplay').forEach(b => b.onclick = () => { pick(b.dataset.pl, b.dataset.pv); if (b.dataset.pl === 'en') S.lang = 'en'; else if (S.lang === 'en') S.lang = 'ro'; persist(); const g = curG(); closeSheet(); if (NARR.on) narrStop(); narrStart(g); });
@@ -278,6 +280,7 @@ window.onNarr = (t, d, playing, ended) => {
   if (NARR.seekTo > 0) { const st = narrTime(NARR.seekTo); NARR.seekTo = -1; A.narrSeek(st); NARR.idx = narrIdxAt(st); return; }
   NARR.seekTo = -1;
   if (ended || (NARR.d && t >= NARR.d - 0.3 && !playing)) { // next chapter
+    if (SLEEP.on && SLEEP.chap > 0 && --SLEEP.left <= 0) { sleepEnd(); return; }
     let b = NARR.b, c = NARR.c + 1; if (c >= VC[b].length) { b++; c = 0; }
     if (b >= NB) { narrStop(); return; }
     narrPrep(b, c); const g = G(b, c, 0); NARR.auto = true; setMode('read', g); NARR.auto = false;
@@ -289,6 +292,143 @@ window.onNarr = (t, d, playing, ended) => {
   if (mode === 'read' && target === cg + 1) go(1); else { RD = { base: target, i: 0 }; if (mode !== 'read') setMode('read', target); else { refresh(); onShown(); } }
   NARR.auto = false;
 };
+/* ---------- Good night: listen with a sleep timer ---------- */
+const SLEEP = { on: false, until: 0, chap: 0, left: 0, t: 0, iv: 0 };
+function sleepLeftTxt() {
+  if (!SLEEP.on) return '';
+  if (SLEEP.until) { const m = Math.max(0, Math.ceil((SLEEP.until - Date.now()) / 60000)); return m + ' min'; }
+  return SLEEP.left + ' ' + (SLEEP.left === 1 ? L('cap.', 'ch.') : L('cap.', 'ch.'));
+}
+function sleepStartG(what) {
+  const d = new Date(), doy = Math.floor((d - new Date(d.getFullYear(), 0, 0)) / 864e5);
+  if (what === 'psa') return G(18, (doy - 1) % 150, 0);
+  if (what === 'pro') return G(19, Math.min(30, d.getDate() - 1), 0);
+  if (what === 'chap') { const r = ref(curG()); return G(r.b, r.c, 0); }
+  return curG();
+}
+function openSleep(push) {
+  const P = Object.assign({ what: 'cont', kind: 'min', min: 30, chap: 1, dim: true }, S.sleepPref || {});
+  const opt = (k, v, t) => '<button data-' + k + '="' + v + '" class="' + (String(P[k === 'mn' ? 'min' : k === 'ch' ? 'chap' : k]) === String(v) && (k === 'what' || (k === 'mn' ? P.kind === 'min' : P.kind === 'chap')) ? 'sl-opt on' : 'sl-opt') + '">' + t + '</button>';
+  const r0 = ref(curG());
+  const h = (SLEEP.on ? '<div class="sleep-now">' + I.moon + '<div><b>' + L('Timer pornit', 'Timer running') + '</b><small>' + L('Se oprește în ', 'Stops in ') + sleepLeftTxt() + '</small></div><button class="btn ghost" id="slMore">+15 min</button><button class="btn" id="slStop">' + L('Oprește', 'Stop') + '</button></div>' : '') +
+    '<div class="sec">' + L('Ce asculți', 'What to listen to') + '</div><div class="chips big sl-what">' +
+      opt('what', 'cont', L('De unde am rămas', 'Where I left off') + '<small>' + esc(label(curG(), S.lang === 'en' ? 'en' : 'ro')) + '</small>') +
+      opt('what', 'chap', L('Capitolul curent', 'Current chapter') + '<small>' + esc(BK[S.lang === 'en' ? 'en' : 'ro'][r0.b] + ' ' + (r0.c + 1)) + '</small>') +
+      opt('what', 'psa', L('Psalmul zilei', 'Psalm of the day')) + opt('what', 'pro', L('Proverbele zilei', 'Proverbs of the day')) + '</div>' +
+    '<div class="sec">' + L('Oprește după', 'Stop after') + '</div><div class="chips sl-dur">' +
+      [15, 30, 45, 60, 90].map(m => opt('mn', m, m + ' min')).join('') + [1, 2, 3].map(c => opt('ch', c, c + (c === 1 ? L(' capitol', ' chapter') : L(' capitole', ' chapters')))).join('') + '</div>' +
+    '<div class="row"><span>' + L('Ecran întunecat cu versetul', 'Dark screen with the verse') + '<br><small class="muted">' + L('Doar versetul curent, foarte discret', 'Only the current verse, very dim') + '</small></span><button class="sw ' + (P.dim ? 'on' : '') + '" id="slDim"></button></div>' +
+    '<p class="hint">' + (WEB ? L('Pe iPhone citirea se face cu vocea telefonului.', 'On iPhone the phone voice reads.') : L('Ascultă cu naratorul. Sunetul scade încet la final, apoi se oprește.', 'Listens with the narrator. The sound fades out at the end, then stops.')) + ' ' + L('Poți închide ecranul telefonului.', 'You can turn the screen off.') + '</p>' +
+    '<button class="btn" id="slGo" style="width:100%;margin-top:6px">' + I.moon + ' ' + (SLEEP.on ? L('Repornește', 'Restart') : L('Pornește', 'Start')) + '</button>';
+  openSheet(L('Noapte bună 🌙', 'Good night 🌙'), h, body => {
+    const save = () => { S.sleepPref = P; persist(); };
+    body.querySelectorAll('[data-what]').forEach(b => b.onclick = () => { P.what = b.dataset.what; save(); body.querySelectorAll('[data-what]').forEach(x => x.classList.toggle('on', x === b)); hap(0); });
+    const dur = () => body.querySelectorAll('.sl-dur button').forEach(x => x.classList.toggle('on', P.kind === 'min' ? x.dataset.mn == P.min : x.dataset.ch == P.chap));
+    body.querySelectorAll('[data-mn]').forEach(b => b.onclick = () => { P.kind = 'min'; P.min = +b.dataset.mn; save(); dur(); hap(0); });
+    body.querySelectorAll('[data-ch]').forEach(b => b.onclick = () => { P.kind = 'chap'; P.chap = +b.dataset.ch; save(); dur(); hap(0); });
+    body.querySelector('#slDim').onclick = e => { P.dim = !P.dim; e.currentTarget.classList.toggle('on', P.dim); save(); };
+    body.querySelector('#slGo').onclick = () => { closeSheet(); sleepStart(P); };
+    const st = body.querySelector('#slStop'); if (st) st.onclick = () => { closeSheet(); sleepEnd(true); };
+    const mo = body.querySelector('#slMore'); if (mo) mo.onclick = () => { sleepExtend(15); closeSheet(); };
+  }, push && sheetOpen());
+}
+function sleepStart(P) {
+  if (NARR.on) narrStop(); if (TTS.on) ttsStop();
+  const g = sleepStartG(P.what);
+  SLEEP.on = true; SLEEP.chap = P.kind === 'chap' ? P.chap : 0; SLEEP.left = SLEEP.chap;
+  SLEEP.until = P.kind === 'min' ? Date.now() + P.min * 60000 : 0;
+  clearTimeout(SLEEP.t);
+  if (SLEEP.until) { try { A && A.narrSleep && A.narrSleep(P.min * 60000); } catch (e) {} SLEEP.t = setTimeout(() => { if (SLEEP.on && (WEB || !NARR.on || !A || !A.narrSleep)) sleepEnd(); }, P.min * 60000 + 1500); }
+  if (S.lang === 'both') { S.lang = 'ro'; persist(); }
+  setMode('read', g);
+  if (WEB || !A || !A.narrStart) ttsStart(); else narrStart(g);
+  hap(1); remLearn('sleep'); if (P.dim) sleepScreen(true); try { window.__awakePoke && __awakePoke(); } catch (e) {}
+  clearInterval(SLEEP.iv); SLEEP.iv = setInterval(sleepTick, 1000); sleepTick();
+}
+function sleepExtend(min) {
+  if (!SLEEP.on) return; if (!SLEEP.until) { SLEEP.left += 1; toast(L('+1 capitol', '+1 chapter')); return; }
+  SLEEP.until += min * 60000; const ms = SLEEP.until - Date.now();
+  try { A && A.narrSleep && A.narrSleep(ms); } catch (e) {} clearTimeout(SLEEP.t); SLEEP.t = setTimeout(() => { if (SLEEP.on && (WEB || !NARR.on)) sleepEnd(); }, ms + 1500);
+  toast('+' + min + ' min'); sleepTick();
+}
+function sleepEnd(manual) {
+  SLEEP.on = false; clearTimeout(SLEEP.t); clearInterval(SLEEP.iv);
+  try { A && A.narrSleep && A.narrSleep(0); } catch (e) {}
+  if (NARR.on) narrStop(); if (TTS.on) ttsStop();
+  sleepScreen(false); const c = $('#sleepChip'); if (c) c.remove(); sleepBtn();
+  if (!manual) toast(L('Noapte bună 🌙', 'Good night 🌙'));
+}
+window.onSleepEnd = () => { NARR.on = false; refresh(); sleepEnd(); };
+function sleepBtn() { const b = $('#btnSleep'); if (!b) return; b.classList.toggle('on', SLEEP.on); b.innerHTML = I.moon + '<span>' + (SLEEP.on ? sleepLeftTxt() : L('Somn', 'Sleep')) + '</span>'; }
+function sleepTick() {
+  sleepBtn();
+  if (!SLEEP.on) return;
+  if (!NARR.on && !TTS.on && !NARR.loading) { /* audio stopped by user */ }
+  let c = $('#sleepChip');
+  const scr = $('#sleepScr');
+  if (c) c.remove();
+  if (scr && !scr.classList.contains('hidden')) {
+    const l = S.lang === 'en' ? 'en' : 'ro', g = curG();
+    scr.querySelector('.ss-v').textContent = txt(g, l); scr.querySelector('.ss-r').textContent = label(g, l) + ' · ⏾ ' + sleepLeftTxt();
+  }
+  if (SLEEP.until && Date.now() > SLEEP.until + 25000) sleepEnd();
+}
+function sleepScreen(on) {
+  let s = $('#sleepScr');
+  if (!on) { if (s) s.classList.add('hidden'); return; }
+  if (!s) {
+    s = document.createElement('div'); s.id = 'sleepScr';
+    s.innerHTML = '<div class="ss-moon">' + I.moon + '</div><p class="ss-v"></p><div class="ss-r"></div><div class="ss-b"><button data-s="more">+15 min</button><button data-s="hide">' + L('Ascunde', 'Hide') + '</button><button data-s="stop">' + L('Oprește', 'Stop') + '</button></div>';
+    document.body.appendChild(s);
+    s.onclick = e => { const b = e.target.closest('[data-s]'); if (!b) { s.classList.toggle('show-b'); return; } const k = b.dataset.s; if (k === 'more') sleepExtend(15); else if (k === 'hide') { s.classList.add('hidden'); sleepTick(); } else sleepEnd(true); };
+  }
+  s.classList.remove('hidden', 'show-b'); sleepTick();
+}
+/* keep the screen on while reading; let it sleep after 30 min without touching, and always during the sleep timer */
+(function () {
+  if (!A || !A.keepAwake) return; let t = 0, on = null;
+  const set = v => { if (v !== on) { on = v; try { A.keepAwake(v); } catch (e) {} } };
+  const poke = () => { clearTimeout(t); if (SLEEP.on) { set(false); return; } set(true); t = setTimeout(() => set(false), 30 * 60000); };
+  ['touchstart', 'wheel', 'keydown', 'mousedown'].forEach(ev => document.addEventListener(ev, poke, { passive: true, capture: true }));
+  window.__awakePoke = poke; poke();
+})();
+window.onLaunch = what => { if (what === 'sleep') openSleep(); else if (what === 'read') { closeSheet(); setMode('read'); } };
+
+/* ---------- reading reminders (Android notifications) – automatic, learned from your habits ---------- */
+function remLearn(kind) { // remember at what hour you usually read / start the sleep timer
+  const d = new Date(), m = d.getHours() * 60 + d.getMinutes(); const k = kind === 'sleep' ? 'sleepTimes' : 'readTimes';
+  S[k] = (S[k] || []).concat(m).slice(-30); persist(); remApply();
+}
+function remMedian(list, lo, hi) { const a = (list || []).filter(m => m >= lo && m <= hi).sort((x, y) => x - y); return a.length >= 2 ? a[a.length >> 1] : null; }
+const hm = m => String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0');
+function remCfg() {
+  const on = S.remAuto !== false, rt = S.readTimes, st = S.sleepTimes;
+  const mm = remMedian(rt, 300, 660), em = remMedian(rt, 840, 1290), sm = remMedian(st, 1140, 1439);
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  return {
+    m: { on, t: hm(mm != null ? clamp(mm + 45, 390, 690) : 480), learned: mm != null },
+    e: { on, t: hm(em != null ? clamp(em + 45, 990, 1290) : 1140), learned: em != null },
+    n: { on: on && (st || []).length > 0, t: hm(sm != null ? clamp(sm - 10, 1200, 1430) : 1335), learned: sm != null }
+  };
+}
+function remApply() { try { if (A && A.setReminders) A.setReminders(JSON.stringify(remCfg())); } catch (e) {} }
+function remSummary() { return S.remAuto === false ? L('oprite', 'off') : L('automate', 'automatic'); }
+function openReminders() {
+  const r = remCfg(), on = S.remAuto !== false;
+  const line = (ic, t, x, d) => '<div class="rem-row"><div class="rem-t"><b>' + ic + ' ' + t + '</b><small>' + d + '</small></div><span class="rem-h">' + (x.on ? '~ ' + x.t : '—') + '</span></div>';
+  const h = (WEB ? '<p class="warn">' + L('Notificările funcționează doar în aplicația Android. Pe iPhone (versiunea web) nu se pot trimite mementouri.', 'Notifications only work in the Android app. The iPhone (web) version cannot send reminders.') + '</p>' : '') +
+    '<div class="row"><span>' + L('Mementouri automate', 'Automatic reminders') + '<br><small class="muted">' + L('Nu trebuie să setezi nimic', 'Nothing to set up') + '</small></span><button class="sw ' + (on ? 'on' : '') + '" id="remSw"></button></div>' +
+    '<p class="hint">' + L('Primești un memento doar dacă nu ai citit încă în ziua respectivă. Orele se potrivesc singure după când citești de obicei: dimineața, după trezire, sau spre seară, după lucru. Dacă citești dimineața, nu mai primești mementoul de seară.', 'You only get a reminder if you have not read yet that day. The times adapt to when you usually read: in the morning after you wake up, or towards evening after work. If you read in the morning, you will not get the evening one.') + '</p>' +
+    line('☀️', L('Dimineața', 'Morning'), r.m, r.m.learned ? L('după ora la care citești de obicei', 'after your usual reading time') : L('implicit, până învăț obiceiul tău', 'default, until I learn your habit')) +
+    line('🏠', L('După lucru', 'After work'), r.e, r.e.learned ? L('după ora la care citești de obicei', 'after your usual reading time') : L('implicit, până învăț obiceiul tău', 'default, until I learn your habit')) +
+    line('🌙', L('Noapte bună', 'Good night'), r.n, r.n.on ? L('înainte de ora la care pornești de obicei timerul de somn', 'before you usually start the sleep timer') : L('pornește singur după ce folosești timerul de somn', 'turns on by itself once you use the sleep timer')) +
+    '<p class="hint">' + L('Seria (zile la rând) se resetează dacă sari o zi.', 'Your streak resets if you skip a day.') + '</p>';
+  openSheet(L('Mementouri de citire', 'Reading reminders'), h, body => {
+    body.querySelector('#remSw').onclick = e => { S.remAuto = S.remAuto === false; persist(); e.currentTarget.classList.toggle('on', S.remAuto !== false); hap(0); remApply(); sheetStack.pop(); openReminders(); };
+  }, sheetOpen());
+}
+try { remApply(); if (A && A.streakInfo) A.streakInfo(streak()); if (A && A.readToday && S.days[today()]) A.readToday(today(), streak()); } catch (e) {}
+
 function narrUserMoved(g) { // user swiped manually while narrating
   if (!NARR.on || NARR.auto || !NARR.d) return;
   const r = ref(g);
@@ -316,6 +456,7 @@ function ttsNext() {
   if (!TTS.on) return;
   const it = TTS.q.shift();
   if (!it) { // verse finished -> next verse
+    if (SLEEP.on && SLEEP.chap > 0) { const r0 = ref(curG()), r1 = ref(Math.min(TOTAL - 1, curG() + 1)); if ((r0.c !== r1.c || r0.b !== r1.b) && --SLEEP.left <= 0) { sleepEnd(); return; } }
     setTimeout(() => { if (TTS.on && !sheetOpen()) go(1); else if (TTS.on) ttsSpeakCur(); }, 450); return;
   }
   const id = 'u' + (++TTS.seq); TTS.id = id;
@@ -558,7 +699,7 @@ function onShown() {
   const it = itemAt(cur()); if (!it) return;
   const g = it.g, t = today();
   if (S.todayKey !== t) { S.todayKey = t; S.todaySeen = []; todaySet = new Set(); }
-  if (!todaySet.has(g)) { todaySet.add(g); S.todaySeen.push(g); S.days[t] = (S.days[t] || 0) + 1; S.total = (S.total || 0) + 1; }
+  if (!todaySet.has(g)) { todaySet.add(g); S.todaySeen.push(g); S.days[t] = (S.days[t] || 0) + 1; S.total = (S.total || 0) + 1; if (S.days[t] === 1) { try { A && A.readToday && A.readToday(t, streak()); } catch (e) {} remLearn('read'); } }
   if (!hasRead(g)) { BITS[g >> 3] |= 1 << (g & 7); readCount++; saveBits(); }
   if (mode === 'foryou') markRecent(g); else if (mode === T('plan')) { planState(S.plan).pos = it.pix; } else S.readPos = g;
   if (S.plan) { const d = planMark(S.plan, g); const pd = planData(S.plan), st = planState(S.plan); if (d >= 0 && !st.done[d] && dayStat(pd, st, d).done) { st.done[d] = 1; toast(T('✓ Ziua ') + (d + 1) + T(' din plan terminată!')); haptic(); } }
@@ -1455,6 +1596,7 @@ function openMenu() {
   const nS = Object.keys(S.saved).length, nL = Object.keys(S.liked).length;
   const h = '<div class="menu-stats"><div class="stat"><b>' + streak() + T('</b><span>zile la rând</span></div><div class="stat"><b>') + (S.days[today()] || 0) + T('</b><span>versete azi</span></div><div class="stat"><b>') + (S.total || 0) + T('</b><span>versete total</span></div></div>') +
     '<button class="mitem" data-m="study">' + I.pen + L('Mod studiu · notițe', 'Study mode · notes') + '<small>' + ((S.notes || []).length || '') + '</small></button>' +
+    '<button class="mitem" data-m="sleep">' + I.moon + L('Noapte bună · ascultare', 'Good night · listening') + '<small>' + (SLEEP.on ? '⏾ ' + sleepLeftTxt() : '') + '</small></button>' +
     '<button class="mitem" data-m="plans">' + I.cal + T('Planuri de citire<small>') + (S.plan ? T('1 activ') : '') + '</small></button>' +
     (NOGATE ? '' : '<button class="mitem" data-m="block">' + I.shield + T('Blocare aplicații de scrolling<small>') + (hardUntil() > Date.now() ? T('🔒 până ') + hhmm(hardUntil()) : S.gate.on ? T('activă') : T('oprită')) + '</small></button>') +
     '<button class="mitem" data-m="stats">' + I.chart + T('Statistici și progres</button>') +
@@ -1469,6 +1611,7 @@ function openMenu() {
   openSheet('Scroll Biblia', h, body => (body.querySelector('.menu-stats').onclick = () => openStats(), body).querySelectorAll('[data-m]').forEach(b => b.onclick = () => {
     const m = b.dataset.m;
     if (m === 'study') { closeSheet(); openStudy(); return; }
+    if (m === 'sleep') { openSleep(true); return; }
     if (m === 'books') { openBooks(); } else if (m === 'search') openSearch(); else if (m === 'saved') openSaved('saved'); else if (m === 'liked') openSaved('liked');
     else if (m === 'votd') { closeSheet(); showVotd(); } else if (m === 'set') openSettings(); else if (m === 'stats') openStats(); else if (m === 'priv') openPrivacy(); else if (m === 'inst') openInstall(); else if (m === 'topics') openTopics(); else if (m === 'plans') { closeSheet(); openPlans(); } else if (m === 'block') openBlock();
   }));
@@ -1481,6 +1624,7 @@ function openSettings() {
     '<div class="row"><span>' + L('Aspect', 'Appearance') + '</span><div class="seg">' + [['auto', L('Automat', 'Auto')], ['day', L('Zi', 'Day')], ['night', L('Noapte', 'Night')]].map(([v, t]) => '<button data-md="' + v + '" class="' + ((S.mode || 'auto') === v ? 'on' : '') + '">' + t + '</button>').join('') + '</div></div>' +
     '<div class="row"><span>' + (UI_EN ? 'Bible text' : 'Textul Bibliei') + '</span>' + seg('lang', [['ro', T('Română')], ['en', 'English'], ['both', T('Ambele')]]) + '</div>' +
     '<div class="row"><span>' + L('Mod studiu la pornire', 'Study mode on start') + '</span>' + stAutoSeg() + '</div>' +
+    '<button class="mitem" id="toRem">' + I.bell + L('Mementouri de citire', 'Reading reminders') + '<small>' + remSummary() + ' ›</small></button>' +
     T('<div class="row"><span>Mărime text</span><input type="range" id="fs" min="0.8" max="1.4" step="0.05" value="') + S.fs + '"></div>' +
     '<button class="mitem" id="toPriv">' + I.shield + T('Confidențialitate și siguranță<small>›</small></button>') +
     '<button class="mitem" id="toVoice">' + I.speaker + T('Voce pentru citire<small>›</small></button>') +
@@ -1492,6 +1636,7 @@ function openSettings() {
   openSheet(T('Setări'), h, body => {
     body.querySelectorAll('[data-k]').forEach(b => b.onclick = () => { S[b.dataset.k] = b.dataset.v; persist(); refresh(); openSettings(); });
     stBindAutoSeg(body);
+    body.querySelector('#toRem').onclick = () => openReminders();
     body.querySelector('#fs').oninput = e => { S.fs = +e.target.value; persist(); refresh(); };
     const tb = body.querySelector('#toBlock'); tb && (tb.onclick = () => openBlock());
     body.querySelector('#toVoice').onclick = () => openVoicePicker();
@@ -1518,7 +1663,7 @@ $('#btnMenu').onclick = openMenu;
   sh.addEventListener('touchstart', e => { const t = e.target; fromBody = !t.closest('.grab,.sheet-head'); if (fromBody && $('#sheetBody').scrollTop > 0) { sy = null; return; } if (t.closest('input,.seg,input[type=range]')) { sy = null; return; } sy = e.touches[0].clientY; sd = 0; sh.style.transition = 'none'; }, { passive: true });
   sh.addEventListener('touchmove', e => { if (sy == null) return; sd = e.touches[0].clientY - sy; if (fromBody && (sd < 0 || $('#sheetBody').scrollTop > 0)) { sy = null; sh.style.transform = ''; return; } if (sd > 0) sh.style.transform = 'translateY(' + sd + 'px)'; }, { passive: true });
   sh.addEventListener('touchend', () => { if (sy == null) return; sy = null; sh.style.transition = 'transform .22s'; if (sd > 110) { sh.style.transform = 'translateY(100%)'; setTimeout(() => { closeSheet(); sh.style.transform = ''; sh.style.transition = ''; }, 200); } else { sh.style.transform = ''; } });
-})(); $('#btnPlans').innerHTML = I.cal + T('<span>Planuri</span>'); $('#btnPlans').onclick = openPlans; if (NOGATE) $('#btnBlock').style.display = 'none'; $('#btnBlock').innerHTML = I.shield + T('<span>Blocare</span>'); $('#btnBlock').onclick = openBlock; updateBlockBtn(); setInterval(updateBlockBtn, 30000); $('#bottom').onclick = () => openStats(); $('#btnSearch').onclick = openSearch;
+})(); $('#btnPlans').innerHTML = I.cal + T('<span>Planuri</span>'); $('#btnPlans').onclick = openPlans; $('#btnSleep').onclick = () => openSleep(); sleepBtn(); if (NOGATE) $('#btnBlock').style.display = 'none'; $('#btnBlock').innerHTML = I.shield + T('<span>Blocare</span>'); $('#btnBlock').onclick = openBlock; updateBlockBtn(); setInterval(updateBlockBtn, 30000); $('#bottom').onclick = () => openStats(); $('#btnSearch').onclick = openSearch;
 
 /* ---------- start ---------- */
 if (S.votd !== today()) { FY.items.push({ g: verseOfDay(), votd: true }); S.votd = today(); }
