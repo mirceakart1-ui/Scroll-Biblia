@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="ro">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>Scroll Biblia</title>
+<script>(function(){var m="auto";try{m=JSON.parse(localStorage.getItem("scrollBiblia.v1")||"{}").mode||"auto";}catch(e){}var d;try{d=window.Android&&Android.sysNight?Android.sysNight():matchMedia("(prefers-color-scheme: dark)").matches;}catch(e){d=true;}var day=m==="day"||(m==="auto"&&!d);document.documentElement.className="classic"+(day?" day":"")+(Math.min(innerWidth,innerHeight)>=600?" tab":"");})();</script>
+<meta name="theme-color" content="#0b0b10">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Scroll Biblia">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<div id="splash"><svg class="emblem" viewBox="0 0 220 220"><defs><path id="ring" d="M110 110m-82 0a82 82 0 1 1 164 0a82 82 0 1 1-164 0"/></defs><circle cx="110" cy="110" r="100" class="e-line"/><circle cx="110" cy="110" r="64" class="e-line"/><text class="e-txt"><textPath href="#ring" startOffset="0">SCROLL · BIBLIA · CUVÂNTUL ZILNIC ·</textPath></text><path class="e-line" d="M70 128c14-6 28-6 40 2 12-8 26-8 40-2V92c-14-6-28-6-40 2-12-8-26-8-40-2zM110 94v36"/><path class="e-line" d="M110 62v22M100 72h20"/></svg><div class="sub">Se încarcă Scriptura…</div></div>
+
+<div id="feed"></div>
+
+<header id="top">
+  <button id="btnMenu" class="icon" aria-label="Meniu"></button>
+  <nav class="tabs">
+    <button data-mode="plan">Plan</button>
+    <button data-mode="read" class="on">Citește</button>
+  </nav>
+  <button id="btnSearch" class="icon" aria-label="Caută"></button>
+</header>
+
+<div id="bottom"><div class="prow"><span id="plabel"></span></div><div class="ptrack"><div id="pfill"></div></div><span id="stats"></span></div>
+
+<div id="gate" class="hidden"></div>
+<button id="btnBlock" aria-label="Blocare aplicații"></button>
+<button id="btnPlans" aria-label="Planuri de citire"></button>
+<div id="dscrim" class="hidden"></div>
+<aside id="drawer" class="hidden"></aside>
+<div id="scrim" class="hidden"></div>
+<section id="sheet" class="hidden">
+  <div class="grab"></div>
+  <div class="sheet-head"><button id="sheetBack" class="icon hidden" aria-label="Înapoi"></button><h2 id="sheetTitle"></h2><button id="sheetClose" class="icon" aria-label="Închide"></button></div>
+  <div id="sheetBody"></div>
+</section>
+
+<div id="toast"></div>
+
+<script src="meta.js"></script>
+<script src="ro_vdc.js"></script>
+<script src="en_kjv.js"></script>
+<script src="xref.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
