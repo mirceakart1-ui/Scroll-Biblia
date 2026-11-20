@@ -4,6 +4,7 @@ const $ = s => document.querySelector(s);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const A = window.Android || null;
 const WEB = !A;
+const NOGATE = WEB || !!window.SB_LITE;
 const IOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 const STANDALONE = (window.navigator.standalone === true) || (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
 
@@ -32,6 +33,7 @@ const I = {
   chart: '<svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>',
   pen: '<svg viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></svg>',
   link: '<svg viewBox="0 0 24 24"><path d="M10 14a4.5 4.5 0 0 0 6.4 0l3-3a4.5 4.5 0 0 0-6.4-6.4l-1.2 1.2"/><path d="M14 10a4.5 4.5 0 0 0-6.4 0l-3 3a4.5 4.5 0 0 0 6.4 6.4l1.2-1.2"/></svg>',
+  copy: '<svg viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2.5"/><path d="M16 8V6.5A2.5 2.5 0 0 0 13.5 4h-7A2.5 2.5 0 0 0 4 6.5v7A2.5 2.5 0 0 0 6.5 16H8"/></svg>',
   plus: '<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>',
   dots: '<svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="19" cy="12" r="1.6" fill="currentColor"/></svg>',
   trash: '<svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>',
@@ -811,7 +813,7 @@ function closeSheet() { document.documentElement.classList.remove('sheeted'); $(
 function sheetBack() { if (sheetStack.length > 1) { sheetStack.pop(); renderSheet(); } else closeSheet(); }
 $('#sheetClose').innerHTML = I.close; $('#sheetBack').innerHTML = I.back;
 $('#sheetClose').onclick = closeSheet; $('#scrim').onclick = closeSheet; $('#sheetBack').onclick = sheetBack;
-window.onAndroidBack = function () { if (STUDY.open && $('#sheet').classList.contains('hidden')) { if (stClosePv() || stGoBack()) return true; const pp = $('#stPop'); if (pp && !pp.classList.contains('hidden')) { pp.classList.add('hidden'); return true; } closeStudy(); return true; } if (GT && !GT.done && !GT.hidden && $('#sheet').classList.contains('hidden')) { GT.hidden = true; renderGate(); return true; } if (!$('#sheet').classList.contains('hidden')) { sheetBack(); return true; } if (!$('#drawer').classList.contains('hidden')) { closePlans(); return true; } if (mode !== 'read') { setMode('read'); return true; } return false; };
+window.onAndroidBack = function () { if (STUDY.open && $('#sheet').classList.contains('hidden')) { if (stClosePv()) return true; { const fb = $('#stFindBox'); if (fb && !fb.classList.contains('hidden')) { stToggleFind(false); return true; } } if (stGoBack()) return true; const pp = $('#stPop'); if (pp && !pp.classList.contains('hidden')) { pp.classList.add('hidden'); return true; } closeStudy(); return true; } if (GT && !GT.done && !GT.hidden && $('#sheet').classList.contains('hidden')) { GT.hidden = true; renderGate(); return true; } if (!$('#sheet').classList.contains('hidden')) { sheetBack(); return true; } if (!$('#drawer').classList.contains('hidden')) { closePlans(); return true; } if (mode !== 'read') { setMode('read'); return true; } return false; };
 
 function openChapter(g, push) {
   const r = ref(g); const l = S.lang === 'en' ? 'en' : 'ro';
@@ -1400,9 +1402,9 @@ function openPrivacy() {
   h += T('<div class="sec">Ce folosește aplicația și de ce</div>');
   h += row(I.book, '#2f4a3a', T('Date salvate local'), T('Versete salvate, progres, planuri, setări – doar pe acest telefon'));
   h += row(I.headphones, '#2b4560', T('Internet – doar pentru narator'), T('Restul aplicației merge offline'));
-  if (!WEB) h += row(I.access, svc ? '#2f4a3a' : '#4a4458', T('Accesibilitate – opțional') + (svc ? T(' · pornit') : T(' · oprit')), T('Doar pentru blocarea Reels/Shorts/feed. Nu citește mesaje, nu trimite nimic.'));
-  if (!WEB) h += row(I.speaker, '#3a3560', T('Sunet'), T('Oprește temporar sunetul când apare ecranul de pauză'));
-  if (!WEB) {
+  if (!NOGATE) h += row(I.access, svc ? '#2f4a3a' : '#4a4458', T('Accesibilitate – opțional') + (svc ? T(' · pornit') : T(' · oprit')), T('Doar pentru blocarea Reels/Shorts/feed. Nu citește mesaje, nu trimite nimic.'));
+  if (!NOGATE) h += row(I.speaker, '#3a3560', T('Sunet'), T('Oprește temporar sunetul când apare ecranul de pauză'));
+  if (!NOGATE) {
   h += T('<div class="sec">Pași de instalare sigură</div><ol class="steps2">') +
     T('<li><b>„Instalare din surse necunoscute”</b> – Android întreabă dacă aplicația din care deschizi fișierul (ex. Fișierele mele) poate instala. Apasă <i>Setări → Permite</i>. După instalare poți retrage permisiunea.</li>') +
     T('<li><b>Play Protect: „Aplicație nescanată”</b> – apare la orice aplicație din afara magazinului. Alege <i>Trimite pentru scanare</i> (ajută ca alerta să nu mai apară) sau <i>Mai multe detalii → Instalează oricum</i>.</li>') +
@@ -1425,7 +1427,7 @@ function openMenu() {
   const h = '<div class="menu-stats"><div class="stat"><b>' + streak() + T('</b><span>zile la rând</span></div><div class="stat"><b>') + (S.days[today()] || 0) + T('</b><span>versete azi</span></div><div class="stat"><b>') + (S.total || 0) + T('</b><span>versete total</span></div></div>') +
     '<button class="mitem" data-m="study">' + I.pen + L('Mod studiu · notițe', 'Study mode · notes') + '<small>' + ((S.notes || []).length || '') + '</small></button>' +
     '<button class="mitem" data-m="plans">' + I.cal + T('Planuri de citire<small>') + (S.plan ? T('1 activ') : '') + '</small></button>' +
-    (WEB ? '' : '<button class="mitem" data-m="block">' + I.shield + T('Blocare aplicații de scrolling<small>') + (hardUntil() > Date.now() ? T('🔒 până ') + hhmm(hardUntil()) : S.gate.on ? T('activă') : T('oprită')) + '</small></button>') +
+    (NOGATE ? '' : '<button class="mitem" data-m="block">' + I.shield + T('Blocare aplicații de scrolling<small>') + (hardUntil() > Date.now() ? T('🔒 până ') + hhmm(hardUntil()) : S.gate.on ? T('activă') : T('oprită')) + '</small></button>') +
     '<button class="mitem" data-m="stats">' + I.chart + T('Statistici și progres</button>') +
     '<button class="mitem" data-m="topics">' + I.tags + T('Versete pe teme<small>') + ((TOPICS.find(t => t[0] === S.topic) || [0, '', T('toate')])[2]) + '</small></button>' +
     '<button class="mitem" data-m="search">' + I.search + T('Caută și alege carte/capitol</button>') +
@@ -1456,7 +1458,7 @@ function openSettings() {
     T('<div class="row"><span>Vibrație la atingere</span><button class="sw ') + (S.haptics ? 'on' : '') + '" id="hap"></button></div>' +
     T('<div class="row"><span>Statistici zilnice</span><button class="btn ghost" id="reset" style="margin:0">Resetează</button></div>') +
     T('<div class="row"><span>Progresul în Biblie</span><button class="btn ghost" id="resetP" style="margin:0">Resetează</button></div>') +
-    (WEB ? '' : '<button class="mitem" id="toBlock">' + I.shield + T('Blocare aplicații de scrolling<small>') + (S.gate.on ? T('activă') : T('oprită')) + ' ›</small></button>') +
+    (NOGATE ? '' : '<button class="mitem" id="toBlock">' + I.shield + T('Blocare aplicații de scrolling<small>') + (S.gate.on ? T('activă') : T('oprită')) + ' ›</small></button>') +
     T('<p class="about">Texte: Biblia Dumitru Cornilescu (română) și King James Version cu numere Strong (engleză). Dicționar: Strong’s Hebrew & Greek. Trimiteri: OpenBible.info (Treasury of Scripture Knowledge și voturi).<br>Totul se păstrează doar pe telefon; aplicația funcționează fără internet.</p>');
   openSheet(T('Setări'), h, body => {
     body.querySelectorAll('[data-k]').forEach(b => b.onclick = () => { S[b.dataset.k] = b.dataset.v; persist(); refresh(); openSettings(); });
@@ -1487,7 +1489,7 @@ $('#btnMenu').onclick = openMenu;
   sh.addEventListener('touchstart', e => { const t = e.target; fromBody = !t.closest('.grab,.sheet-head'); if (fromBody && $('#sheetBody').scrollTop > 0) { sy = null; return; } if (t.closest('input,.seg,input[type=range]')) { sy = null; return; } sy = e.touches[0].clientY; sd = 0; sh.style.transition = 'none'; }, { passive: true });
   sh.addEventListener('touchmove', e => { if (sy == null) return; sd = e.touches[0].clientY - sy; if (fromBody && (sd < 0 || $('#sheetBody').scrollTop > 0)) { sy = null; sh.style.transform = ''; return; } if (sd > 0) sh.style.transform = 'translateY(' + sd + 'px)'; }, { passive: true });
   sh.addEventListener('touchend', () => { if (sy == null) return; sy = null; sh.style.transition = 'transform .22s'; if (sd > 110) { sh.style.transform = 'translateY(100%)'; setTimeout(() => { closeSheet(); sh.style.transform = ''; sh.style.transition = ''; }, 200); } else { sh.style.transform = ''; } });
-})(); $('#btnPlans').innerHTML = I.cal + T('<span>Planuri</span>'); $('#btnPlans').onclick = openPlans; $('#btnBlock').innerHTML = I.shield + T('<span>Blocare</span>'); $('#btnBlock').onclick = openBlock; updateBlockBtn(); setInterval(updateBlockBtn, 30000); $('#bottom').onclick = () => openStats(); $('#btnSearch').onclick = openSearch;
+})(); $('#btnPlans').innerHTML = I.cal + T('<span>Planuri</span>'); $('#btnPlans').onclick = openPlans; if (NOGATE) $('#btnBlock').style.display = 'none'; $('#btnBlock').innerHTML = I.shield + T('<span>Blocare</span>'); $('#btnBlock').onclick = openBlock; updateBlockBtn(); setInterval(updateBlockBtn, 30000); $('#bottom').onclick = () => openStats(); $('#btnSearch').onclick = openSearch;
 
 /* ---------- start ---------- */
 if (S.votd !== today()) { FY.items.push({ g: verseOfDay(), votd: true }); S.votd = today(); }
@@ -1533,7 +1535,7 @@ function sec(list) {
 function stNotes() { if (!S.notes) S.notes = []; return S.notes; }
 function stCur() {
   const ns = stNotes(); let n = ns.find(x => x.id === S.noteCur);
-  if (!n) { n = ns[0]; if (!n) { n = { id: 'n' + Date.now(), h: ST_TPL[1][3](), u: Date.now() }; ns.unshift(n); } S.noteCur = n.id; persist(); }
+  if (!n) { n = ns[0]; if (!n) { n = { id: 'n' + Date.now(), h: ST_TPL[0][3](), u: Date.now() }; ns.unshift(n); } S.noteCur = n.id; persist(); }
   return n;
 }
 function stTitle(n) { const d = document.createElement('div'); d.innerHTML = n.h || ''; const h = d.querySelector('h1,h2,p'); const t = (h ? h.textContent : d.textContent).trim(); return t.slice(0, 60) || L('Notiță fără titlu', 'Untitled note'); }
@@ -1558,7 +1560,8 @@ function openStudy(g) {
       '<button class="st-ib" id="stMore" aria-label="' + L('Mai mult', 'More') + '">' + I.dots + '</button>' +
     '</div>' +
     '<div class="st-main">' +
-      '<div class="st-bible"><div class="st-nav"><button class="st-ib" id="stPrev">‹</button><button class="st-book" id="stBook"></button><button class="st-ib" id="stNext">›</button></div>' +
+      '<div class="st-bible"><div class="st-nav"><button class="st-ib" id="stPrev">‹</button><button class="st-book" id="stBook"></button><button class="st-ib" id="stNext">›</button><button class="st-ib" id="stFind" title="' + L('Caută', 'Search') + '">' + I.search + '</button></div>' +
+        '<div class="st-find hidden" id="stFindBox"><div class="st-fbar">' + I.search + '<input id="stQ" placeholder="' + L('Cuvânt, „Ioan 3:16” sau „G26”', 'Word, “John 3:16” or “G26”') + '" autocomplete="off" enterkeyhint="search"><button class="st-ib" id="stQx">' + I.close + '</button></div><div class="st-fres" id="stFres"></div></div>' +
         '<div class="st-verses" id="stVerses"></div>' +
         '<div class="st-selbar hidden" id="stSelBar"><span id="stSelN"></span><button id="stSelClear">' + L('Anulează', 'Clear') + '</button><button class="pri" id="stSelAdd">' + I.plus + L('Adaugă în foaie', 'Add to sheet') + '</button></div>' +
       '</div>' +
@@ -1578,7 +1581,10 @@ function openStudy(g) {
   function tb(k, h, t) { return '<button data-tb="' + k + '" title="' + esc(t) + '" aria-label="' + esc(t) + '">' + h + '</button>'; }
   $('#stDoc').innerHTML = n.h || '';
   { const TT = new Set(['Titlul predicii', 'Sermon title', 'Pasajul studiat', 'Passage', 'Devoționalul zilei', 'Today’s devotional', 'Cuvântul studiat', 'Word studied', 'Titlu', 'Title', 'I. Primul punct', 'II. Al doilea punct', 'III. Al treilea punct', 'I. First point', 'II. Second point', 'III. Third point']);
-    $('#stDoc').querySelectorAll('h1,h2').forEach(h => { if (TT.has(h.textContent.trim()) && !h.querySelector('span')) h.classList.add('ph'); }); }
+    $('#stDoc').querySelectorAll('h1,h2').forEach(h => { if (TT.has(h.textContent.trim()) && !h.querySelector('span')) h.classList.add('ph'); });
+    // older explanation blocks: make Strong numbers clickable
+    $('#stDoc').querySelectorAll('.nx').forEach(nx => { const w = document.createTreeWalker(nx, NodeFilter.SHOW_TEXT); const ns = []; while (w.nextNode()) { const n = w.currentNode; if (!n.parentNode.closest('.nr,.sref') && /\b[HG]\d{1,4}\b/.test(n.nodeValue)) ns.push(n); }
+      ns.forEach(n => { const sp = document.createElement('span'); sp.innerHTML = sLink(n.nodeValue, true); n.replaceWith(...sp.childNodes); }); }); }
   $('#stDoc').style.fontSize = Math.round(17 * S.fs * (S.noteZoom || 1)) + 'px';
   stBindTop(); stRenderBible(); stBindDoc(); stBindDrag(); stSetPane(stView());
   stBindSwipe(); stBindDivider();
@@ -1604,6 +1610,15 @@ function stBindTop() {
   $('#stPrev').onclick = () => stChapter(-1);
   $('#stNext').onclick = () => stChapter(1);
   $('#stBook').onclick = stPickBook;
+  $('#stFind').onclick = () => stToggleFind();
+  $('#stQx').onclick = () => stToggleFind(false);
+  { let t = 0; const q = $('#stQ'); q.oninput = () => { clearTimeout(t); t = setTimeout(stRunFind, 250); }; q.onkeydown = e => { if (e.key === 'Enter') { clearTimeout(t); stRunFind(); q.blur(); } }; }
+  $('#stFres').onclick = e => {
+    if (STUDY.dragJustEnded) return;
+    const sr = e.target.closest('.sref'); if (sr) { stStrongPv(sr.dataset.s); return; }
+    const x = e.target.closest('.sxr'); if (x) { stPreview(+x.dataset.g, +x.dataset.sp || 0, true); return; }
+    const bk = e.target.closest('[data-fb]'); if (bk) { STUDY.g = G(+bk.dataset.fb, 0, 0); STUDY.sel = []; stToggleFind(false); stRenderBible(); }
+  };
   $('#stSelClear').onclick = () => { STUDY.sel = []; stMarkSel(); };
   $('#stSelAdd').onclick = () => { stInsert({ type: 'v', gs: STUDY.sel.slice() }); STUDY.sel = []; stMarkSel(); };
 }
@@ -1629,7 +1644,8 @@ function stRenderBible() {
       return;
     }
     const xi = e.target.closest('.sxr'); if (xi) { stPreview(+xi.dataset.g, +xi.dataset.sp); return; }
-    const wr = e.target.closest('.swr'); if (wr) { stInsert({ type: 'w', code: wr.dataset.s, g: +wr.dataset.g }); return; }
+    const sr = e.target.closest('.sref'); if (sr) { e.stopPropagation(); stStrongPv(sr.dataset.s); return; }
+    const wr = e.target.closest('.swr'); if (wr) { stStrongPv(wr.dataset.s, +wr.dataset.g); return; }
     const v = e.target.closest('.sv'); if (v) { const g = +v.dataset.g; const i = STUDY.sel.indexOf(g); if (i >= 0) STUDY.sel.splice(i, 1); else STUDY.sel.push(g); STUDY.sel.sort((a, b) => a - b); hap(0); stMarkSel(); stShowBar(i >= 0 ? null : v); }
   };
   S.studyG = STUDY.g; persist(); stMarkSel();
@@ -1651,21 +1667,76 @@ function stGoBack() {
   if (!STUDY.hist || !STUDY.hist.length) return false;
   const g = STUDY.hist.pop(); STUDY.g = g; STUDY.sel = []; hap(0); stRenderBible(); return true;
 }
-function stPreview(g0, sp) {
-  stClosePv(); const l = stLang(); const gs = []; for (let k = 0; k <= (sp || 0); k++) gs.push(g0 + k);
+function sLink(t, ce) { return esc(t).replace(/\b([HG])(\d{1,4})\b/g, '<span class="sref" data-s="$1$2"' + (ce ? ' contenteditable="false"' : '') + '>$1$2</span>'); }
+function stPreview(g0, sp, fromFind, gsIn) {
+  stClosePv(); const l = stLang(); const gs = gsIn || []; if (!gsIn) for (let k = 0; k <= (sp || 0); k++) gs.push(g0 + k);
   const pv = document.createElement('div'); pv.id = 'stPv'; pv.className = 'st-pv';
   pv.innerHTML = '<div class="st-pvc"><div class="st-pvh"><b>' + esc(stRangeLabel(gs, l)) + '</b><button class="st-ib" data-pv="x">' + I.close + '</button></div><div class="st-pvt">' +
     gs.map(g => (gs.length > 1 ? '<sup>' + (ref(g).v + 1) + '</sup>' : '') + esc(txt(g, l)) + (S.lang === 'both' ? '<em>' + esc(txt(g, 'en')) + '</em>' : '')).join(' ') +
-    '</div><div class="st-pvb"><button data-pv="open">' + I.book + L('Deschide aici', 'Open here') + '</button><button data-pv="add" class="pri">' + I.plus + L('În foaie', 'To sheet') + '</button></div></div>';
+    '</div><div class="st-pvw hidden"></div><div class="st-pvb"><button data-pv="copy">' + I.copy + L('Copiază', 'Copy') + '</button><button data-pv="orig"><b>Αα</b>' + L('Original', 'Original') + '</button><button data-pv="open">' + I.book + L('Deschide', 'Open') + '</button>' + (gsIn ? '' : '<button data-pv="add" class="pri">' + I.plus + L('În foaie', 'To sheet') + '</button>') + '</div></div>';
   $('#study').appendChild(pv); hap(0);
   const from = (document.querySelector('#stVerses .sv.sel:last-of-type') || {}).dataset;
   pv.onclick = e => {
+    const sr = e.target.closest('.sref'); if (sr) { stStrongPv(sr.dataset.s, +sr.dataset.g); return; }
     const b = e.target.closest('[data-pv]');
     if (!b) { if (!e.target.closest('.st-pvc')) stClosePv(); return; }
-    const k = b.dataset.pv; stClosePv();
+    const k = b.dataset.pv;
+    if (k === 'orig') {
+      if (!window.LEX_H) { loadLex(() => b.click()); return; }
+      const box = pv.querySelector('.st-pvw'); const seen = {};
+      box.innerHTML = gs.map(g => origWords(g).filter(w => !seen[w.s] && (seen[w.s] = 1)).map(w => { const en = lexEntry(w.s) || ['', '']; return '<span class="sref wchip" data-s="' + w.s + '" data-g="' + g + '"><b class="' + (w.s[0] === 'H' ? 'heb' : 'grk') + '">' + esc(en[0]) + '</b> ' + esc(w.en) + '</span>'; }).join('')).join('') || '<p class="st-hint">' + L('Fără cuvinte originale pentru acest verset.', 'No original words for this verse.') + '</p>';
+      box.classList.toggle('hidden'); hap(0); return;
+    }
+    stClosePv();
     if (k === 'add') stInsert({ type: 'v', gs });
-    else if (k === 'open') stNavTo(g0, STUDY.xFrom);
+    else if (k === 'copy') stCopy('„' + gs.map(g => txt(g, l)).join(' ') + '”\n— ' + stRangeLabel(gs, l));
+    else if (k === 'open') { if (fromFind) stToggleFind(false); if (stView() === 'notes') stSetPane('bible', true); stNavTo(gs[0], gsIn ? STUDY.g : STUDY.xFrom); }
   };
+}
+function stCopy(t) { try { if (A && A.copyText) A.copyText(t); else navigator.clipboard.writeText(t); } catch (e) {} hap(0); toast(T('Copiat')); }
+function stStrongPv(code, g) {
+  if (!window.LEX_H) { loadLex(() => stStrongPv(code, g)); return; }
+  const e = lexEntry(code); if (!e) return; stClosePv();
+  const heb = code[0] === 'H', def = (meaning(code, e) || '').trim();
+  const pv = document.createElement('div'); pv.id = 'stPv'; pv.className = 'st-pv';
+  pv.innerHTML = '<div class="st-pvc"><div class="st-pvh"><b>' + (heb ? L('Ebraică', 'Hebrew') : L('Greacă', 'Greek')) + ' · ' + code + '</b><button class="st-ib" data-pv="x">' + I.close + '</button></div>' +
+    '<div class="st-lex"><span class="' + (heb ? 'heb' : 'grk') + '">' + esc(e[0]) + '</span><i>' + esc(e[1]) + (e[2] ? ' · ' + esc(e[2]) : '') + '</i></div>' +
+    '<div class="st-pvd">' + sLink(def || '—') + (e[4] ? '<div class="st-kjv"><small>KJV</small> ' + sLink(e[4]) + '</div>' : '') + '</div>' +
+    '<div class="st-pvb"><button data-pv="copy">' + I.copy + L('Copiază', 'Copy') + '</button><button data-pv="more">' + I.book + L('Mai mult', 'More') + '</button><button data-pv="add" class="pri">' + I.plus + L('În foaie', 'To sheet') + '</button></div></div>';
+  $('#study').appendChild(pv); hap(0);
+  pv.onclick = ev => {
+    const sr = ev.target.closest('.sref'); if (sr) { stStrongPv(sr.dataset.s); return; }
+    const b = ev.target.closest('[data-pv]');
+    if (!b) { if (!ev.target.closest('.st-pvc')) stClosePv(); return; }
+    const k = b.dataset.pv; stClosePv();
+    if (k === 'add') stInsert({ type: 'w', code, g });
+    else if (k === 'more') openWord(code, false, g);
+    else if (k === 'copy') stCopy(e[0] + ' (' + e[1] + ', ' + code + ') — ' + def + (e[4] ? '\nKJV: ' + e[4] : ''));
+  };
+}
+function stToggleFind(on) {
+  const box = $('#stFindBox'); if (!box) return; const show = on == null ? box.classList.contains('hidden') : on;
+  box.classList.toggle('hidden', !show); $('#stVerses').classList.toggle('hidden', show);
+  if (show) { if (stView() === 'notes') stSetPane('bible', true); setTimeout(() => $('#stQ').focus(), 50); } else $('#stQ').blur();
+}
+function stRunFind() {
+  const s = $('#stQ').value.trim(), res = $('#stFres'), l = stLang();
+  if (s.length < 2) { res.innerHTML = ''; return; }
+  let out = '';
+  const sm = s.match(/^([HhGg])\s*0*(\d{1,4})$/);
+  if (sm) { const code = sm[1].toUpperCase() + (+sm[2]); if (!window.LEX_H) { loadLex(stRunFind); return; } const e = lexEntry(code); if (e) out += '<div class="sec">Strong</div><div class="sxl"><span class="sref big" data-s="' + code + '">' + code + ' · ' + esc(e[0]) + ' · ' + esc(e[1]) + '</span></div>'; }
+  const nq = norm(s); const bm = []; for (let b = 0; b < NB; b++) if (norm(BK.ro[b]).startsWith(nq) || norm(BK.en[b]).startsWith(nq)) bm.push(b);
+  if (bm.length) out += '<div class="sec">' + L('Cărți', 'Books') + '</div><div class="sxl">' + bm.slice(0, 12).map(b => '<button class="sxr" data-fb="' + b + '">' + esc(BK[l][b]) + '</button>').join('') + '</div>';
+  const rg = parseRef(s); if (rg != null) out += '<div class="sec">' + L('Referință', 'Reference') + '</div>' + stFRow(rg, l, '');
+  const arr = normAll(l), hits = []; if (nq.length >= 2) for (let i = 0; i < TOTAL && hits.length < 150; i++) if (arr[i].includes(nq)) hits.push(i);
+  if (!sm) out += '<div class="sec">' + (hits.length >= 150 ? '150+' : hits.length) + L(' rezultate', ' results') + '</div>' + (hits.length ? hits.map(g => stFRow(g, l, nq)).join('') : '<p class="st-hint">' + L('Niciun rezultat.', 'No results.') + '</p>');
+  out += '<p class="st-hint">' + L('Atinge = vezi versetul · ține apăsat = mergi la el · trage = în foaie', 'Tap = preview · hold = go there · drag = to sheet') + '</p>';
+  res.innerHTML = out; res.scrollTop = 0;
+}
+function stFRow(g, l, nq) {
+  const raw = txt(g, l); let t = esc(raw.length > 160 ? raw.slice(0, 160) + '…' : raw);
+  if (nq && nq.length >= 2) { const n = norm(raw), p = n.indexOf(nq); if (p >= 0 && p < 160) t = esc(raw.slice(0, p)) + '<mark>' + esc(raw.slice(p, p + nq.length)) + '</mark>' + esc(raw.slice(p + nq.length, 160)) + (raw.length > 160 ? '…' : ''); }
+  return '<div class="sxr srow" data-g="' + g + '" data-sp="0"><b>' + esc(label(g, l)) + '</b><p>' + t + '</p></div>';
 }
 function stClosePv() { const p = $('#stPv'); if (p) { p.remove(); return true; } return false; }
 function stMarkSel() {
@@ -1705,9 +1776,9 @@ function stWords(g, row) {
   if (open) return;
   const seen = {}; const ws = origWords(g).filter(w => !seen[w.s] && (seen[w.s] = 1));
   const box = document.createElement('div'); box.className = 'sws';
-  box.innerHTML = '<div class="sws-h">' + L('Trage sau atinge o explicație ca să o pui în foaie', 'Drag or tap an explanation to add it') + '</div>' + ws.map(w => {
+  box.innerHTML = '<div class="sws-h">' + L('Atinge = explicația completă · trage = în foaie', 'Tap = full entry · drag = to sheet') + '</div>' + ws.map(w => {
     const e = lexEntry(w.s) || ['', '', '', '', '']; const def = (meaning(w.s, e) || '').replace(/\s+/g, ' ');
-    return '<div class="swr" data-s="' + w.s + '" data-g="' + g + '"><b class="' + (w.s[0] === 'H' ? 'heb' : 'grk') + '">' + esc(e[0]) + '</b> <i>' + esc(e[1]) + '</i> <span class="swe">' + esc(w.en) + '</span><p>' + esc(def.slice(0, 150)) + (def.length > 150 ? '…' : '') + '</p></div>';
+    return '<div class="swr" data-s="' + w.s + '" data-g="' + g + '"><b class="' + (w.s[0] === 'H' ? 'heb' : 'grk') + '">' + esc(e[0]) + '</b> <i>' + esc(e[1]) + '</i> <span class="swe">' + esc(w.en) + '</span><p>' + sLink(def.slice(0, 150)) + (def.length > 150 ? '…' : '') + '</p></div>';
   }).join('');
   row.after(box);
 }
@@ -1728,7 +1799,7 @@ function stBlockHtml(p) {
   }
   if (p.type === 'w') {
     const e = lexEntry(p.code) || ['', p.code, '', '', '']; const def = (meaning(p.code, e) || '').replace(/\s+/g, ' ');
-    return '<div class="nx" data-s="' + p.code + '"><span class="h" contenteditable="false">⠿</span><span class="nr" contenteditable="false">' + (p.code[0] === 'H' ? L('Ebraică', 'Hebrew') : L('Greacă', 'Greek')) + ' · ' + p.code + (p.g != null ? ' · ' + esc(label(p.g, l)) : '') + '</span><b class="' + (p.code[0] === 'H' ? 'heb' : 'grk') + '">' + esc(e[0]) + '</b> <i>' + esc(e[1]) + (e[2] ? ' (' + esc(e[2]) + ')' : '') + '</i> — ' + esc(def) + '</div>';
+    return '<div class="nx" data-s="' + p.code + '"><span class="h" contenteditable="false">⠿</span><span class="nr" contenteditable="false">' + (p.code[0] === 'H' ? L('Ebraică', 'Hebrew') : L('Greacă', 'Greek')) + ' · ' + p.code + (p.g != null ? ' · ' + esc(label(p.g, l)) : '') + '</span><b class="' + (p.code[0] === 'H' ? 'heb' : 'grk') + '">' + esc(e[0]) + '</b> <i>' + esc(e[1]) + (e[2] ? ' (' + esc(e[2]) + ')' : '') + '</i> — ' + sLink(def, true) + '</div>';
   }
   return '';
 }
@@ -1768,7 +1839,15 @@ function stBindDoc() {
     const ph = e.target.closest && e.target.closest('.ph');
     if (ph) stClearPh(ph);
   });
-  doc.addEventListener('click', e => { const ph = e.target.closest('.ph'); if (ph) stClearPh(ph); });
+  doc.addEventListener('click', e => {
+    const sr = e.target.closest('.sref'); if (sr) { e.preventDefault(); stStrongPv(sr.dataset.s); return; }
+    const nr = e.target.closest('.nr, .nx > b'); if (nr) {
+      const blk = nr.parentNode;
+      if (blk.classList.contains('nx')) { stStrongPv(blk.dataset.s); return; }
+      if (blk.classList.contains('nv')) { const gs = blk.dataset.g.split(',').map(Number); stPreview(gs[0], 0, false, gs); return; }
+    }
+    const ph = e.target.closest('.ph'); if (ph) stClearPh(ph);
+  });
   const tools = $('#stTools');
   tools.addEventListener('mousedown', e => e.preventDefault());
   tools.addEventListener('touchstart', e => { if (e.target.closest('[data-tb]')) e.preventDefault(); }, { passive: false });
@@ -1890,7 +1969,7 @@ function stAddFromSheet(p) {
 /* ---------- drag & drop (touch + mouse) ---------- */
 function stBindDrag() {
   const study = $('#study'); let D = null, lpT = 0;
-  const srcOf = t => t.closest('[data-va],[data-back],.st-pv') ? null : (t.closest('.st-doc .h') || t.closest('.swr') || t.closest('.sxr') || t.closest('.sv'));
+  const srcOf = t => t.closest('[data-va],[data-back],.st-pv,.sref,[data-fb]') ? null : (t.closest('.st-doc .h') || t.closest('.swr') || t.closest('.sxr') || t.closest('.sv'));
   const payloadOf = el => {
     if (el.classList.contains('h')) return { type: 'move', el: el.parentNode, label: (el.parentNode.querySelector('.nr') || el.parentNode).textContent };
     if (el.classList.contains('sxr')) { const g0 = +el.dataset.g, sp = +el.dataset.sp; const gs = []; for (let k = 0; k <= sp; k++) gs.push(g0 + k); return { type: 'v', gs, label: stRangeLabel(gs, stLang()) }; }
