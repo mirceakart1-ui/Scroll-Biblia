@@ -728,3 +728,34 @@ html.calm #btnSleep,html.sheeted #btnSleep,html.studying #btnSleep{opacity:0}
 html.studying #btnSleep{visibility:hidden}
 html.day #btnSleep{filter:none}
 html.day #btnSleep.on{color:#5b4fc9}html.day #btnSleep.on svg{fill:rgba(91,79,201,.15)}
+/* lexicon footnotes: discreet references */
+.xh sup.fn{font-size:.62em;font-weight:700;color:#e9b949;padding:0 2px 0 1px;cursor:pointer;vertical-align:super;line-height:0}
+html.day .xh sup.fn{color:#a86f00}
+.xh sup.fs{font-size:.58em;font-weight:600;opacity:.55;padding-left:1px;cursor:pointer;vertical-align:super;line-height:0;letter-spacing:.2px}
+.xbar{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.xb{padding:6px 11px;border-radius:999px;background:rgba(255,255,255,.07);color:inherit;font-size:12.5px;font-weight:500;opacity:.85}
+html.day .xb{background:rgba(0,0,0,.05)}
+.xb small{opacity:.55;margin-left:2px}
+.fn-pop{position:fixed;z-index:80;max-height:60vh;overflow:auto;padding:12px;border-radius:16px;background:#22202b;color:#eceaf3;box-shadow:0 16px 44px rgba(0,0,0,.45);font-size:14px;line-height:1.45;animation:pvIn .15s ease}
+html.day .fn-pop{background:#fff;color:#1f1d26;box-shadow:0 12px 36px rgba(0,0,0,.18)}
+.fn-h{font-size:11.5px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;opacity:.55;margin:0 2px 8px}
+.fn-r{display:block;width:100%;text-align:left;padding:8px 10px;border-radius:10px;color:inherit;margin-bottom:4px;background:rgba(255,255,255,.05)}
+html.day .fn-r{background:rgba(0,0,0,.04)}
+.fn-r b{display:block;font-size:13px;color:#e9b949}html.day .fn-r b{color:#a86f00}
+.fn-r span{font-size:13px;opacity:.8;font-family:"Noto Serif",Georgia,serif}
+.fn-w span{font-size:22px}.fn-w i{opacity:.7}
+.fn-pop p{margin:6px 2px}
+.fn-more{margin-top:6px;padding:7px 12px;border-radius:999px;background:#ffd166;color:#1a1720;font-weight:600;font-size:13px}
+.xsrcs p{margin:0 2px 10px}.xsrcs small{opacity:.65}
+.xlinks{display:flex;flex-direction:column;gap:6px}
+.xlinks a{color:#7cc4ff;text-decoration:none;font-weight:600}html.day .xlinks a{color:#1f6fae}
+.fn-r.one span{font-size:15px;line-height:1.5}
+/* study top bar on phones: two tidy rows instead of overflowing */
+@media (max-width:640px){
+  .st-top{flex-wrap:wrap;row-gap:4px;padding:6px 8px}
+  #stExit{order:1}.st-title{order:2;flex:1 1 calc(100% - 140px);min-width:0}#stNew{order:3}#stMore{order:4}
+  .st-seg{order:5;flex:1 1 auto}
+  #stAddBib{order:6}#stTheme{order:7}#stFeed{order:8}
+  .st-seg button{flex:1;justify-content:center}
+  .st-ib{width:38px;height:38px}
+}

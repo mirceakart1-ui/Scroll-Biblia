@@ -908,7 +908,7 @@ function openMore(g) {
       if (k === 'topic') openTopics();
       else if (k === 'save') openSaveTo(g);
       else if (k === 'ctx') { closeSheet(); openChapter(g); }
-      else if (k === 'copy') { const l = S.lang === 'en' ? 'en' : 'ro'; const t = '„' + txt(g, l) + '”\n— ' + label(g, l); try { A && A.copyText ? A.copyText(t) : navigator.clipboard.writeText(t); } catch (e) {} closeSheet(); toast(T('Copiat')); }
+      else if (k === 'copy') { const l = S.lang === 'en' ? 'en' : 'ro'; const t = '„' + txt(g, l) + '”\n— ' + label(g, l); try { A && A.copyText ? A.copyText(t) : clipCopy(t); } catch (e) {} closeSheet(); toast(T('Copiat')); }
     });
     body.querySelectorAll('[data-ml]').forEach(b => b.onclick = () => { S.lang = b.dataset.ml; persist(); hap(0); body.querySelectorAll('[data-ml]').forEach(x => x.classList.toggle('on', x === b)); refresh(); });
   });
@@ -919,7 +919,7 @@ function share(g) {
   if (S.lang === 'both') s += '\n\n"' + txt(g, 'en') + '"\n— ' + label(g, 'en') + ' (KJV)';
   if (A && A.share) A.share(s);
   else if (navigator.share) navigator.share({ text: s }).catch(() => {});
-  else { try { navigator.clipboard.writeText(s); toast(T('Copiat')); } catch (e) {} }
+  else { try { clipCopy(s); toast(T('Copiat')); } catch (e) {} }
 }
 
 /* ---------- modes ---------- */
@@ -1226,21 +1226,86 @@ function occurrences(code) {
 }
 let extCbs = null;
 function loadExt(cb) {
-  if (window.LEX_EXT) { cb && cb(); return; }
+  if (window.LEX_EXT && (S.lang === 'en' || window.LEX_EXT_RO || window.__extRoFail)) { cb && cb(); return; }
+  if (window.LEX_EXT && S.lang !== 'en' && !window.LEX_EXT_RO) { const r = document.createElement('script'); r.src = 'lex_ext_ro.js'; r.onload = () => cb && cb(); r.onerror = () => { window.__extRoFail = 1; cb && cb(); }; document.head.appendChild(r); return; }
   if (extCbs) { cb && extCbs.push(cb); return; }
   extCbs = cb ? [cb] : []; const sc = document.createElement('script'); sc.src = 'lex_ext.js';
-  sc.onload = () => { const c = extCbs; extCbs = null; c.forEach(f => f()); };
+  sc.onload = () => {
+    const done = () => { const c = extCbs; extCbs = null; c.forEach(f => f()); };
+    if (S.lang === 'en') return done();
+    const r = document.createElement('script'); r.src = 'lex_ext_ro.js'; r.onload = done; r.onerror = () => { window.__extRoFail = 1; done(); }; document.head.appendChild(r);
+  };
   sc.onerror = () => { extCbs = null; toast(L('Lexiconul extins nu s-a putut încărca', 'Extended lexicon failed to load')); };
   document.head.appendChild(sc);
 }
-/* extended lexicon (STEPBible: abridged BDB for Hebrew, Abbott-Smith for Greek; CC BY) */
-function extHtml(code) {
-  const ex = (window.LEX_EXT || {})[code]; const l = S.lang === 'en' ? 'en' : 'ro';
+/* extended lexicon (STEPBible: abridged BDB for Hebrew, Abbott-Smith for Greek; CC BY)
+   Verse references become small * footnotes, Strong numbers become tiny superscripts – both open in a popup,
+   so long articles (especially biographies) stay easy to read. Original English and sources sit behind buttons. */
+function extHtml(code, showEn) {
+  const l = S.lang === 'en' ? 'en' : 'ro'; const ro = l === 'ro' && (window.LEX_EXT_RO || {})[code];
+  const en = (window.LEX_EXT || {})[code]; const ex = (ro && !showEn) ? ro : en;
   if (!ex || !ex.length) return '<p class="hint">' + L('Nu există explicație extinsă pentru acest cuvânt.', 'No extended entry for this word.') + '</p>';
-  return ex.map(([gl, h]) => '<div class="xs">' + (ex.length > 1 ? '<b class="xg">' + esc(gl) + '</b>' : '') + '<div class="xh">' +
-    h.replace(/<a data-r="(\d+)\.(\d+)\.(\d+)">[^<]*<\/a>/g, (m, b, c, v) => { b = +b; c = +c - 1; v = +v - 1; if (b >= NB || c >= VC[b].length || v >= VC[b][c]) return ''; const g = G(b, c, v); return '<a class="vref" data-g="' + g + '">' + esc(label(g, l)) + '</a>'; })
-     .replace(/\b([HG])(\d{1,4})\b(?![^<]*>)/g, '<span class="sref" data-s="$1$2">$1$2</span>') + '</div></div>').join('') +
-    '<p class="xsrc">' + (code[0] === 'H' ? 'BDB (abr.)' : 'Abbott-Smith') + ' · STEPBible.org · CC BY · ' + L('în engleză', 'English') + '</p>';
+  const all = [];
+  const body = ex.map(([gl, h]) => {
+    // valid verse anchors -> g numbers
+    h = h.replace(/<a data-r="(\d+)\.(\d+)\.(\d+)">[^<]*<\/a>/g, (m, b, c, v) => { b = +b; c = +c - 1; v = +v - 1; if (b >= NB || c < 0 || c >= VC[b].length || v < 0 || v >= VC[b][c]) return ''; return '\u0001' + G(b, c, v) + '\u0002'; });
+    // runs of references ("Gen 1:1; Exo 2:3, …", optionally in parentheses) -> one footnote
+    h = h.replace(/\(?\s*(?:\u0001\d+\u0002[\s,;]*(?:și|and|cf\.|vezi|see)?[\s,;]*)+\)?/g, run => {
+      const gs = [...run.matchAll(/\u0001(\d+)\u0002/g)].map(x => +x[1]); if (!gs.length) return run;
+      all.push(...gs); const lead = /^\s/.test(run) ? '' : ''; return lead + '<sup class="fn" data-gs="' + gs.join(',') + '">*' + (gs.length > 1 ? gs.length : '') + '</sup> ';
+    });
+    // Strong numbers -> tiny superscripts; "(H175)" loses its brackets
+    h = h.replace(/\(\s*([HG])0*(\d{1,4})[A-Z]?\s*\)/g, '<sup class="fs" data-s="$1$2">$1$2</sup>')
+         .replace(/\b([HG])0*(\d{1,4})[A-Z]?\b(?![^<]*>)/g, '<sup class="fs" data-s="$1$2">$1$2</sup>')
+         .replace(/\s+(<sup)/g, '$1').replace(/\(\s*\)/g, '').replace(/\s+([,;.])/g, '$1')
+         .replace(/[,;:]\s*(<sup class="fn"[^>]*>[^<]*<\/sup>)/g, '$1').replace(/(<\/sup>)\s*([,;])\s*(?=[.;,]|<br>|$)/g, '$1');
+    return '<div class="xs">' + (ex.length > 1 ? '<b class="xg">' + esc(gl) + '</b>' : '') + '<div class="xh">' + h + '</div></div>';
+  }).join('');
+  const uniq = [...new Set(all)];
+  return body + '<div class="xbar">' +
+    (uniq.length ? '<button class="xb" data-x="refs" data-gs="' + uniq.join(',') + '">* ' + L('Trimiteri', 'References') + ' <small>' + uniq.length + '</small></button>' : '') +
+    (ro ? '<button class="xb" data-x="lang">' + (showEn ? L('Traducerea în română', 'Romanian') : L('Originalul (engleză)', 'Original (English)')) + '</button>' : '') +
+    '<button class="xb" data-x="src">' + L('Surse', 'Sources') + '</button></div>';
+}
+function extSources(code) {
+  const heb = code[0] === 'H', n = +code.slice(1);
+  return '<div class="xsrcs">' +
+    '<p><b>' + (heb ? 'Brown–Driver–Briggs (BDB), <i>A Hebrew and English Lexicon of the Old Testament</i>, 1906' : 'G. Abbott-Smith, <i>A Manual Greek Lexicon of the New Testament</i>, 1922') + '</b><br><small>' + L('Lexicon academic clasic · ediție prescurtată în setul de date STEPBible (Tyndale House, Cambridge), licență CC BY 4.0', 'Classic academic lexicon · abridged edition in the STEPBible dataset (Tyndale House, Cambridge), CC BY 4.0') + '</small></p>' +
+    '<p><b>Strong’s Exhaustive Concordance</b>, 1890 · ' + L('numerotarea cuvintelor', 'word numbering') + '</p>' +
+    '<p class="xlinks"><a href="https://github.com/STEPBible/STEPBible-Data" data-url>STEPBible-Data (GitHub)</a>' +
+    '<a href="https://biblehub.com/' + (heb ? 'hebrew' : 'greek') + '/' + n + '.htm" data-url>Bible Hub · ' + code + '</a>' +
+    '<a href="https://www.blueletterbible.org/lexicon/' + code.toLowerCase() + '/kjv/' + (heb ? 'wlc' : 'tr') + '/0-1/" data-url>Blue Letter Bible · ' + code + '</a></p>' +
+    (S.lang !== 'en' && (window.LEX_EXT_RO || {})[code] ? '<p><small>' + L('Traducerea în română a articolului e făcută pentru această aplicație; pentru citare folosește originalul.', 'The Romanian translation was made for this app; cite the original.') + '</small></p>' : '') + '</div>';
+}
+/* one small popover for footnotes and Strong superscripts */
+function fnPop(anchor, html, bind) {
+  let p = document.getElementById('fnPop'); if (p) p.remove();
+  p = document.createElement('div'); p.id = 'fnPop'; p.className = 'fn-pop'; p.innerHTML = html; document.body.appendChild(p);
+  const r = anchor.getBoundingClientRect(), w = Math.min(340, innerWidth - 20);
+  p.style.width = w + 'px'; p.style.left = Math.max(10, Math.min(innerWidth - w - 10, r.left - w / 2)) + 'px';
+  const below = r.bottom + 8, ph = p.offsetHeight; p.style.top = (below + ph < innerHeight - 10 ? below : Math.max(10, r.top - ph - 8)) + 'px';
+  const off = e => { if (!p.contains(e.target) && e.target !== anchor) { p.remove(); document.removeEventListener('pointerdown', off, true); } };
+  setTimeout(() => document.addEventListener('pointerdown', off, true), 0);
+  bind && bind(p); hap(0); return p;
+}
+function bindExt(box, code, ctx) { // ctx: 'sheet' (word sheet) | 'study'
+  const l = S.lang === 'en' ? 'en' : 'ro';
+  const openG = g => { const p = document.getElementById('fnPop'); if (p) p.remove(); if (ctx === 'study') stPreview(g, 0); else openVerse(g, true); };
+  const openS = c => { const p = document.getElementById('fnPop'); if (p) p.remove(); if (ctx === 'study') stStrongPv(c); else openWord(c, true); };
+  const refsHtml = gs => '<div class="fn-h">' + (gs.length === 1 ? L('Trimitere', 'Reference') : gs.length + L(' trimiteri', ' references')) + '</div>' +
+    (gs.length === 1 ? '<button class="fn-r one" data-g="' + gs[0] + '"><b>' + esc(label(gs[0], l)) + '</b><span>' + esc(txt(gs[0], l)) + '</span></button><button class="fn-more" data-g="' + gs[0] + '">' + L('Deschide versetul', 'Open verse') + ' ›</button>'
+      : gs.slice(0, 40).map(g => '<button class="fn-r" data-g="' + g + '"><b>' + esc(label(g, l)) + '</b><span>' + esc(txt(g, l).slice(0, 90)) + (txt(g, l).length > 90 ? '…' : '') + '</span></button>').join(''));
+  box.onclick = e => {
+    const fn = e.target.closest('.fn,[data-x=refs]');
+    if (fn) { e.stopPropagation(); const gs = fn.dataset.gs.split(',').map(Number); fnPop(fn, refsHtml(gs), p => p.querySelectorAll('[data-g]').forEach(b => b.onclick = () => openG(+b.dataset.g))); return; }
+    const fs = e.target.closest('.fs');
+    if (fs) { e.stopPropagation(); const c = fs.dataset.s, en = lexEntry(c);
+      fnPop(fs, '<div class="fn-h">' + c + '</div>' + (en ? '<div class="fn-w"><span class="' + (c[0] === 'H' ? 'heb' : 'grk') + '">' + esc(en[0]) + '</span> <i>' + esc(en[1]) + '</i></div><p>' + esc(shortDef(en, c).slice(0, 160)) + '</p>' : '') + '<button class="fn-more" data-s="' + c + '">' + L('Deschide cuvântul', 'Open word') + ' ›</button>',
+        p => p.querySelector('[data-s]').onclick = () => openS(c)); return; }
+    const x = e.target.closest('[data-x]'); if (!x) return; e.stopPropagation();
+    if (x.dataset.x === 'lang') { box.dataset.en = box.dataset.en === '1' ? '' : '1'; box.innerHTML = extHtml(code, box.dataset.en === '1'); hap(0); return; }
+    if (x.dataset.x === 'src') fnPop(x, '<div class="fn-h">' + L('Surse', 'Sources') + '</div>' + extSources(code), p => p.querySelectorAll('[data-url]').forEach(a => a.onclick = ev => { ev.preventDefault(); try { A && A.openUrl ? A.openUrl(a.href) : window.open(a.href, '_blank'); } catch (er) {} }));
+  };
 }
 function openWord(code, push, fromG) {
   if (!window.LEX_H) { loadLex(() => openWord(code, push, fromG)); return; }
@@ -1260,9 +1325,7 @@ function openWord(code, push, fromG) {
   openSheet((heb ? T('Ebraică · ') : T('Greacă · ')) + e[1], h, body => {
     body.querySelector('#wnt').onclick = () => stAddFromSheet({ type: 'w', code, g: fromG });
     body.querySelectorAll('a[data-s]').forEach(a => a.onclick = () => openWord(a.dataset.s, true));
-    loadExt(() => { const w = body.querySelector('#wext'); if (!w) return; w.innerHTML = extHtml(code);
-      w.querySelectorAll('.sref').forEach(a => a.onclick = () => openWord(a.dataset.s, true));
-      w.querySelectorAll('.vref').forEach(a => a.onclick = () => openVerse(+a.dataset.g, true)); });
+    loadExt(() => { const w = body.querySelector('#wext'); if (!w) return; w.innerHTML = extHtml(code); bindExt(w, code, 'sheet'); });
     body.querySelectorAll('.item').forEach(it => it.onclick = () => openVerse(+it.dataset.g, true));
     if (fromG != null) body.querySelectorAll('.item').forEach(it => { if (+it.dataset.g === fromG) it.classList.add('cur'); });
   }, push || sheetOpen());
@@ -1597,7 +1660,7 @@ function openPrivacy() {
   h += T('<div class="sec">Politica de confidențialitate</div><pre class="policy">') + esc(UI_EN ? PRIVACY_EN : PRIVACY_TEXT) + T('</pre><button class="btn" id="cpy">Copiază politica</button>');
   h += T('<div class="sec">Datele mele</div><button class="btn ghost" id="wipe" style="color:#ff8a8a">Șterge toate datele (apasă de 2 ori)</button><p class="hint">Șterge versetele salvate, progresul, statisticile, planurile și setările de blocare. Textele Bibliei rămân.</p>');
   openSheet(T('Confidențialitate și siguranță'), h, body => {
-    body.querySelector('#cpy').onclick = () => { if (A && A.copyText) A.copyText(UI_EN ? PRIVACY_EN : PRIVACY_TEXT); else try { navigator.clipboard.writeText(UI_EN ? PRIVACY_EN : PRIVACY_TEXT); } catch (e) {} toast(T('Politica a fost copiată')); };
+    body.querySelector('#cpy').onclick = () => { if (A && A.copyText) A.copyText(UI_EN ? PRIVACY_EN : PRIVACY_TEXT); else try { clipCopy(UI_EN ? PRIVACY_EN : PRIVACY_TEXT); } catch (e) {} toast(T('Politica a fost copiată')); };
     body.querySelector('#wipe').onclick = () => { if (!confirmTwice('wipe')) return; try { localStorage.removeItem(KEY); } catch (e) {} try { A && A.wipeNative && A.wipeNative(); } catch (e) {} toast(T('Toate datele au fost șterse')); setTimeout(() => location.reload(), 600); };
   }, sheetOpen());
 }
@@ -1861,7 +1924,7 @@ function stGoBack() {
   if (!STUDY.hist || !STUDY.hist.length) return false;
   const g = STUDY.hist.pop(); STUDY.g = g; STUDY.sel = []; hap(0); stRenderBible(); return true;
 }
-function sLink(t, ce) { return esc(t).replace(/\b([HG])(\d{1,4})\b/g, '<span class="sref" data-s="$1$2"' + (ce ? ' contenteditable="false"' : '') + '>$1$2</span>'); }
+function sLink(t, ce) { return esc(t).replace(/\b([HG])0*(\d{1,4})[A-Z]?\b/g, '<span class="sref" data-s="$1$2"' + (ce ? ' contenteditable="false"' : '') + '>$1$2</span>'); }
 function stPreview(g0, sp, fromFind, gsIn) {
   stClosePv(); const l = stLang(); const gs = gsIn || []; if (!gsIn) for (let k = 0; k <= (sp || 0); k++) gs.push(g0 + k);
   const pv = document.createElement('div'); pv.id = 'stPv'; pv.className = 'st-pv';
@@ -1887,7 +1950,12 @@ function stPreview(g0, sp, fromFind, gsIn) {
     else if (k === 'open') { if (fromFind) stToggleFind(false); if (stView() === 'notes') stSetPane('bible', true); stNavTo(gs[0], gsIn ? STUDY.g : STUDY.xFrom); }
   };
 }
-function stCopy(t) { try { if (A && A.copyText) A.copyText(t); else navigator.clipboard.writeText(t); } catch (e) {} hap(0); toast(T('Copiat')); }
+function clipCopy(t) { // clipboard with a fallback when the browser refuses (permissions, http, old WebView)
+  const legacy = () => { try { const ta = document.createElement('textarea'); ta.value = t; ta.style.cssText = 'position:fixed;opacity:0;top:0'; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); } catch (e) {} };
+  try { const pr = navigator.clipboard && navigator.clipboard.writeText(t); if (pr && pr.catch) pr.catch(legacy); else if (!pr) legacy(); } catch (e) { legacy(); }
+  return { catch() {}, then(f) { f && f(); return this; } };
+}
+function stCopy(t) { try { if (A && A.copyText) A.copyText(t); else clipCopy(t); } catch (e) {} hap(0); toast(T('Copiat')); }
 function stStrongPv(code, g) {
   if (!window.LEX_H) { loadLex(() => stStrongPv(code, g)); return; }
   const e = lexEntry(code); if (!e) return; stClosePv();
@@ -1906,7 +1974,7 @@ function stStrongPv(code, g) {
       const box = pv.querySelector('.st-ext');
       if (!box.classList.contains('hidden')) { box.classList.add('hidden'); b.classList.remove('on'); return; }
       box.innerHTML = '<p class="st-hint">' + L('Se încarcă…', 'Loading…') + '</p>'; box.classList.remove('hidden'); b.classList.add('on'); hap(0);
-      loadExt(() => { const oc = occurrences(code); box.innerHTML = '<div class="xocc">' + L('Apare în ', 'Appears in ') + oc.gs.length + L(' versete (KJV)', ' verses (KJV)') + '</div>' + extHtml(code); box.scrollIntoView({ block: 'nearest' }); });
+      loadExt(() => { const oc = occurrences(code); box.innerHTML = '<div class="xocc">' + L('Apare în ', 'Appears in ') + oc.gs.length + L(' versete (KJV)', ' verses (KJV)') + '</div><div class="xbody"></div>'; const xb = box.querySelector('.xbody'); xb.innerHTML = extHtml(code); bindExt(xb, code, 'study'); box.scrollIntoView({ block: 'nearest' }); });
       return;
     }
     if (!b) { if (!ev.target.closest('.st-pvc')) stClosePv(); return; }
@@ -2203,8 +2271,8 @@ function stMore() {
     body.querySelectorAll('[data-z]').forEach(b => b.onclick = () => { S.noteZoom = +b.dataset.z; persist(); $('#stDoc').style.fontSize = Math.round(17 * S.fs * S.noteZoom) + 'px'; body.querySelectorAll('[data-z]').forEach(x => x.classList.toggle('on', x === b)); });
     body.querySelector('#stTpl').onclick = () => stNewSheet();
     const text = () => { stSave(true); const d = $('#stDoc'); return d.innerText.replace(/⠿/g, '').replace(/\n{3,}/g, '\n\n').trim(); };
-    body.querySelector('#stShare').onclick = () => { const t = text(); if (A && A.share) A.share(t); else if (navigator.share) navigator.share({ text: t }).catch(() => {}); else { try { navigator.clipboard.writeText(t); toast(T('Copiat')); } catch (e) {} } };
-    body.querySelector('#stCopy').onclick = () => { const t = text(); try { A && A.copyText ? A.copyText(t) : navigator.clipboard.writeText(t); } catch (e) {} toast(T('Copiat')); };
+    body.querySelector('#stShare').onclick = () => { const t = text(); if (A && A.share) A.share(t); else if (navigator.share) navigator.share({ text: t }).catch(() => {}); else { try { clipCopy(t); toast(T('Copiat')); } catch (e) {} } };
+    body.querySelector('#stCopy').onclick = () => { const t = text(); try { A && A.copyText ? A.copyText(t) : clipCopy(t); } catch (e) {} toast(T('Copiat')); };
     body.querySelector('#stDup').onclick = () => { stSave(true); const c = stCur(); const n = { id: 'n' + Date.now(), h: c.h, u: Date.now() }; stNotes().unshift(n); S.noteCur = n.id; persist(); closeSheet(); openStudy(); toast(L('Foaie duplicată', 'Sheet duplicated')); };
     stBindAutoSeg(body);
   });
