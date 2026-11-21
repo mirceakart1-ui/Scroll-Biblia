@@ -1169,7 +1169,17 @@ function loadLex(cb) {
 }
 const roDef = code => (S.lang !== 'en' && window.LEX_RO && LEX_RO[code]) || null;
 const meaning = (code, e) => roDef(code) || e[3] || '';
-function lexEntry(code) { if (!window.LEX_H) return null; const n = +code.slice(1); return (code[0] === 'H' ? LEX_H : LEX_G)[n] || null; }
+const SUP = { e: 'ᵉ', a: 'ᵃ', o: 'ᵒ', i: 'ⁱ', u: 'ᵘ' };
+function lexClean(t) { // the Strong's source has some markup in the transliteration/pronunciation fields
+  if (typeof t !== 'string' || (t.indexOf('<') < 0 && t.indexOf('{') < 0)) return t;
+  return t.replace(/<hi rend="super">([^<]*)<\/hi>/g, (m, x) => x.split('').map(ch => SUP[ch] || ch).join(''))
+    .replace(/<[^>]+>/g, '').replace(/\s*\}\s*\{\s*/g, ' / ').replace(/[{}]/g, '').replace(/\s+/g, ' ').trim();
+}
+function lexEntry(code) {
+  if (!window.LEX_H) return null; const n = +code.slice(1); const e = (code[0] === 'H' ? LEX_H : LEX_G)[n] || null;
+  if (e && !e._c) { for (let i = 0; i < e.length; i++) e[i] = lexClean(e[i]); e[0] = e[0].replace(/\s{2,}/g, ' · '); e[1] = e[1].replace(/\s{2,}/g, ' · '); try { Object.defineProperty(e, '_c', { value: 1 }); } catch (x) {} }
+  return e;
+}
 const ETYM = /^\s*(?:\((?:caldeeană|aramaică)\)\s*;?\s*)?(?:(?:o |un )?(?:rădăcină primară|particulă primară|cuvânt primar|verb primar)|(?:din|plural de la|feminin de la|masculin de la|formă prelungită a|o variantă pentru|la fel ca|corespunzător lui|compară)\b[^;]*|de (?:origine|înrudire|derivare) [^;]*|probabil din[^;]*|poate din[^;]*|aparent din[^;]*)\s*[;,]\s*/i;
 const shortDef = (e, code) => { const ro = code && roDef(code); let d = ro || (e[4] || e[3] || ''); if (ro) { d = d.replace(/^[\s,;:]+/, ''); for (let k = 0; k < 3 && ETYM.test(d); k++) d = d.replace(ETYM, ''); d = d.charAt(0).toUpperCase() + d.slice(1); } d = d.replace(/^[-–\s]+/, ''); return d.length > 80 ? d.slice(0, 78) + '…' : d; };
 function sheetOpen() { return !$('#sheet').classList.contains('hidden'); }
