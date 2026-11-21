@@ -1315,6 +1315,7 @@ function openWord(code, push, fromG) {
   const linkify = t => esc(t).replace(/\b([HG])(\d{1,4})\b/g, '<a data-s="$1$2">$1$2</a>');
   const oc = occurrences(code);
   let h = '<div class="wcard"><div class="wor ' + (heb ? 'heb' : 'grk') + '">' + esc(e[0]) + '</div><div class="wtr">' + esc(e[1]) + (e[2] ? ' · <i>' + esc(e[2]) + '</i>' : '') + '</div><div class="wmeta">' + (heb ? T('Ebraică (VT)') : T('Greacă (NT)')) + T(' · Strong ') + code + T(' · apare în ') + oc.gs.length + T(' versete</div></div>');
+  h += placeCard(code);
   h += '<button class="btn ghost" id="wnt">' + I.pen + ' ' + L('Pune explicația în notițe', 'Add explanation to notes') + '</button>';
   h += T('<div class="sec">Semnificație și origine</div><p class="wdef">') + linkify(meaning(code, e) || '—') + '</p>';
   if (e[4]) h += T('<div class="sec">Cum e tradus în KJV</div><p class="wdef">') + linkify(e[4]) + '</p>';
@@ -1323,7 +1324,7 @@ function openWord(code, push, fromG) {
   h += T('<div class="sec">Unde mai apare</div>') + listItems(oc.gs.slice(0, 60), T('Nicio apariție.'), false);
   if (oc.gs.length > 60) h += T('<div class="hint">Primele 60 din ') + oc.gs.length + '.</div>';
   openSheet((heb ? T('Ebraică · ') : T('Greacă · ')) + e[1], h, body => {
-    body.querySelector('#wnt').onclick = () => stAddFromSheet({ type: 'w', code, g: fromG });
+    body.querySelector('#wnt').onclick = () => stAddFromSheet({ type: 'w', code, g: fromG }); bindUrls(body);
     body.querySelectorAll('a[data-s]').forEach(a => a.onclick = () => openWord(a.dataset.s, true));
     loadExt(() => { const w = body.querySelector('#wext'); if (!w) return; w.innerHTML = extHtml(code); bindExt(w, code, 'sheet'); });
     body.querySelectorAll('.item').forEach(it => it.onclick = () => openVerse(+it.dataset.g, true));
@@ -1881,10 +1882,99 @@ function stBindTop() {
 }
 
 /* ---------- Bible pane ---------- */
+
+/* ===== Context istoric + surse academice (offline; vezi context.js, places.js) ===== */
+const CTX_CAT = { A: ['Confirmat de dovezi istorice', 'Confirmed by historical evidence'], B: ['Ce spune textul biblic', 'What the biblical text says'], C: ['Interpretări academice', 'Scholarly interpretations'], D: ['Ipoteze și reconstituiri', 'Hypotheses and reconstructions'], E: ['Disputat sau necunoscut', 'Disputed or unknown'] };
+function ctxFor(b, c) { const k = b + '.' + (c + 1); return (window.CTX || []).filter(n => n.ch.includes(k)); }
+function ctxRef(r) { const [b, c, v] = r.split('.').map(Number); const bb = b - 1, cc = c - 1, vv = v - 1; if (bb < 0 || bb >= NB || cc < 0 || cc >= VC[bb].length || vv < 0 || vv >= VC[bb][cc]) return null; return G(bb, cc, vv); }
+function openUrl(u) { try { A && A.openUrl ? A.openUrl(u) : window.open(u, '_blank'); } catch (e) {} }
+function srcCard(id) {
+  const s = (window.CTX_SRC || {})[id]; if (!s) return '';
+  return '<div class="cs-card"><b>' + esc(s[0]) + '</b>' + (s[1] ? '<span>' + esc(s[1]) + '</span>' : '') + '<small>' + esc([s[2], s[3]].filter(Boolean).join(' · ')) + '</small>' +
+    '<a href="' + esc(s[4]) + '" data-url>' + L('Deschide sursa (online)', 'Open source (online)') + ' ↗</a></div>';
+}
+function ctxSearchLinks(b, c) {
+  const q0 = '"' + BK.en[b] + ' ' + (c + 1) + '"', e = encodeURIComponent;
+  const arch = ' (source:"Near Eastern Archaeology" OR source:"Bulletin of the American Schools of Oriental Research" OR source:"Tel Aviv" OR source:"Israel Exploration Journal")';
+  const L2 = [
+    ['Bible Odyssey', 'Society of Biblical Literature', 'https://www.google.com/search?q=' + e('site:bibleodyssey.org ' + q0)],
+    ['Oxford Bibliographies', L('bibliografii academice (parțial cu abonament)', 'scholarly bibliographies (partly paywalled)'), 'https://www.google.com/search?q=' + e('site:oxfordbibliographies.com ' + q0)],
+    ['Journal of Biblical Literature (SBL)', L('articole de specialitate', 'peer-reviewed articles'), 'https://scholar.google.com/scholar?q=' + e(q0 + ' source:"Journal of Biblical Literature"')],
+    [L('Reviste de arheologie', 'Archaeology journals'), 'NEA · BASOR · Tel Aviv · IEJ', 'https://scholar.google.com/scholar?q=' + e(q0 + arch)],
+    [L('Publicații universitare', 'University publications'), L('acces liber (CORE)', 'open access (CORE)'), 'https://core.ac.uk/search?q=' + e(q0)],
+    ['JSTOR', L('reviste academice', 'academic journals'), 'https://www.jstor.org/action/doBasicSearch?Query=' + e(q0)]
+  ];
+  return '<div class="cs-links">' + L2.map(x => '<a href="' + esc(x[2]) + '" data-url><b>' + esc(x[0]) + '</b><small>' + esc(x[1]) + '</small></a>').join('') + '</div>' +
+    '<p class="cs-note">' + L('Linkurile caută automat pasajul și se deschid online. Rezultatele nu sunt verificate de aplicație: verifică autorul, data și dacă sursa e academică.', 'These links search for the passage online. Results are not checked by the app: check author, date and whether the source is scholarly.') + '</p>';
+}
+function ctxOverlay(title, html, bind) {
+  let ov = document.getElementById('ctxOv'); if (ov) ov.remove();
+  ov = document.createElement('div'); ov.id = 'ctxOv'; ov.className = 'ctx-ov';
+  ov.innerHTML = '<div class="ctx-card"><div class="ctx-hd"><b>' + esc(title) + '</b><button class="ctx-x" aria-label="' + L('Închide', 'Close') + '">' + I.close + '</button></div><div class="ctx-bd">' + html + '</div></div>';
+  document.body.appendChild(ov); hap(0);
+  ov.addEventListener('click', e => {
+    if (e.target === ov || e.target.closest('.ctx-x')) { ov.remove(); return; }
+    const a = e.target.closest('a[data-url]'); if (a) { e.preventDefault(); openUrl(a.href); }
+  });
+  bind && bind(ov); return ov;
+}
+function openCtx(id) {
+  const n = (window.CTX || []).find(x => x.id === id); if (!n) return;
+  const l = S.lang === 'en' ? 'en' : 'ro'; const used = [];
+  const sup = ids => ids.length ? '<sup class="cs" data-cs="' + ids.join(',') + '">*' + ids.map(i => { let k = used.indexOf(i); if (k < 0) { used.push(i); k = used.length - 1; } return k + 1; }).join(',') + '</sup>' : '';
+  const refs = rs => (rs || []).map(ctxRef).filter(g => g != null).map(g => '<button class="cs-v" data-g="' + g + '">' + esc(label(g, l)) + '</button>').join('');
+  let h = UI_EN ? '<p class="cs-note">' + 'These notes are written in Romanian.' + '</p>' : '';
+  ['A', 'B', 'C', 'D', 'E'].forEach(k => {
+    if (!n[k] || !n[k].length) return;
+    h += '<div class="cs-sec cs-' + k + '"><div class="cs-cat"><i>' + k + '</i>' + L(CTX_CAT[k][0], CTX_CAT[k][1]) + '</div>' +
+      n[k].map(([t, ids, rs]) => '<p>' + esc(t) + sup(ids || []) + (rs && rs.length ? '<span class="cs-vs">' + refs(rs) + '</span>' : '') + '</p>').join('') + '</div>';
+  });
+  h += '<div class="xbar"><button class="xb" data-cx="src">* ' + L('Surse', 'Sources') + ' <small>' + used.length + '</small></button><button class="xb" data-cx="more">' + L('Caută mai mult', 'Search more') + '</button></div>';
+  h += '<p class="cs-note">' + L('Notă scrisă pentru aplicație pe baza surselor indicate; nu reproduce textul lor. Citește sursa originală înainte de a cita.', 'Note written for the app from the listed sources; it does not reproduce them.') + '</p>';
+  ctxOverlay(n.t, h, ov => {
+    ov.querySelector('.ctx-bd').addEventListener('click', e => {
+      const c = e.target.closest('.cs'); if (c) { e.stopPropagation(); fnPop(c, '<div class="fn-h">' + L('Sursa', 'Source') + '</div>' + c.dataset.cs.split(',').map(srcCard).join(''), p => p.querySelectorAll('[data-url]').forEach(a => a.onclick = ev => { ev.preventDefault(); openUrl(a.href); })); return; }
+      const v = e.target.closest('.cs-v'); if (v) { e.stopPropagation(); const g = +v.dataset.g; ov.remove(); if (document.getElementById('study')) stPreview(g, 0); else openVerse(g, true); return; }
+      const x = e.target.closest('[data-cx]'); if (!x) return; e.stopPropagation();
+      if (x.dataset.cx === 'src') fnPop(x, '<div class="fn-h">' + L('Surse', 'Sources') + '</div>' + used.map((id, i) => '<div class="cs-n">' + (i + 1) + '</div>' + srcCard(id)).join(''), p => p.querySelectorAll('[data-url]').forEach(a => a.onclick = ev => { ev.preventDefault(); openUrl(a.href); }));
+      else { const r = ref(STUDY.g != null ? STUDY.g : 0); fnPop(x, '<div class="fn-h">' + L('Caută în surse academice', 'Search scholarly sources') + '</div>' + ctxSearchLinks(r.b, r.c), p => p.querySelectorAll('[data-url]').forEach(a => a.onclick = ev => { ev.preventDefault(); openUrl(a.href); })); }
+    });
+  });
+}
+function openCtxSearch(b, c) {
+  const l = S.lang === 'en' ? 'en' : 'ro';
+  ctxOverlay(L('Surse academice · ', 'Scholarly sources · ') + BK[l][b] + ' ' + (c + 1), ctxSearchLinks(b, c));
+}
+function ctxRow(b, c) {
+  const ns = ctxFor(b, c);
+  return '<div class="st-ctx">' + ns.map(n => '<button class="ctx-chip" data-ctx="' + n.id + '"><i>i</i>' + esc(n.t) + '</button>').join('') +
+    '<button class="ctx-chip ghost" data-ctxs="1">' + I.search + L('Surse academice', 'Scholarly sources') + '</button></div>';
+}
+function placeCard(code) {
+  const p = (window.PLACES || {})[code]; if (!p) return '';
+  const [ro, ti, la, lo, ty, pid, km] = p;
+  const refs = [['Ierusalim', 31.777, 35.235], ['Damasc', 33.51, 36.29], ['Babilon', 32.54, 44.42], ['Ninive', 36.36, 43.15], ['Memfis', 29.85, 31.25], ['Antiohia', 36.2, 36.16], ['Efes', 37.94, 27.34], ['Atena', 37.97, 23.72], ['Roma', 41.89, 12.49], ['Tir', 33.27, 35.2], ['Gaza', 31.5, 34.46], ['Corint', 37.91, 22.88]];
+  const pts = refs.filter(r => r[0] !== ro);
+  const near = pts.map(r => [r, Math.hypot(r[1] - la, (r[2] - lo) * Math.cos(la * Math.PI / 180))]).sort((a, b) => a[1] - b[1]).slice(0, 4).map(x => x[0]);
+  const all = near.concat([[ro, la, lo, 1]]);
+  let x0 = Math.min(...all.map(r => r[2])), x1 = Math.max(...all.map(r => r[2])), y0 = Math.min(...all.map(r => r[1])), y1 = Math.max(...all.map(r => r[1]));
+  const pad = Math.max(.4, (x1 - x0) * .15, (y1 - y0) * .15); x0 -= pad; x1 += pad; y0 -= pad; y1 += pad;
+  const W = 300, H = 130, sx = W / (x1 - x0), sy = H / (y1 - y0), s = Math.min(sx, sy), ox = (W - (x1 - x0) * s) / 2, oy = (H - (y1 - y0) * s) / 2;
+  const P = r => [ox + (r[2] - x0) * s, oy + (y1 - r[1]) * s];
+  const svg = '<svg class="pl-map" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="' + esc(ro) + '">' +
+    near.filter(r => { const [x, y] = P(r), [mx, my] = P([ro, la, lo]); return Math.hypot(x - mx, y - my) > 14; }).map(r => { const [x, y] = P(r), mx = P([ro, la, lo])[0], lf = x < mx; return '<circle cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="3" class="pl-ref"/><text x="' + (lf ? x - 6 : x + 6).toFixed(1) + '" y="' + (y + 4).toFixed(1) + '"' + (lf ? ' text-anchor="end"' : '') + '>' + r[0] + '</text>'; }).join('') +
+    (() => { const [x, y] = P([ro, la, lo]); return '<circle cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="6" class="pl-me"/><text class="pl-mt" x="' + (x + 9).toFixed(1) + '" y="' + (y + 4).toFixed(1) + '">' + esc(ro) + '</text>'; })() + '</svg>';
+  const tyRo = { settlement: 'așezare', urban: 'oraș', 'archaeological-site': 'sit arheologic', river: 'râu', port: 'port', 'cultural-landscape': 'peisaj cultural', 'settlement-modern': 'localitate actuală', 'city-center': 'centru de oraș', basilica: 'bazilică' };
+  return '<div class="pl-card"><div class="pl-h"><b>' + L('Loc antic', 'Ancient place') + ' · ' + esc(ro) + '</b><small>' + esc(ty.split(',').map(t => UI_EN ? t : (tyRo[t] || t)).join(', ')) + '</small></div>' + svg +
+    '<div class="pl-m">' + la.toFixed(3) + '° N, ' + lo.toFixed(3) + '° E' + (km ? ' · ' + L('cca. ', 'c. ') + km + L(' km de Ierusalim (în linie dreaptă)', ' km from Jerusalem (straight line)') : '') + '</div>' +
+    '<div class="pl-m"><small>' + L('Identificare după Pleiades: ', 'Identification per Pleiades: ') + esc(ti) + L('. Pentru sensul principal al cuvântului; harta e schematică (fără relief/coastă).', '. For the main sense; schematic map.') + '</small></div>' +
+    '<div class="pl-l"><a href="https://pleiades.stoa.org/places/' + pid + '" data-url>Pleiades ↗</a><a href="https://www.openstreetmap.org/?mlat=' + la + '&mlon=' + lo + '#map=11/' + la + '/' + lo + '" data-url>' + L('Hartă online', 'Online map') + ' ↗</a></div></div>';
+}
+function bindUrls(box) { box.querySelectorAll('a[data-url]').forEach(a => a.onclick = ev => { ev.preventDefault(); ev.stopPropagation(); openUrl(a.href); }); }
 function stRenderBible() {
   const r = ref(STUDY.g), l = stLang(), vs = BIB[l][r.b][r.c];
   $('#stBook').textContent = BK[l][r.b] + ' ' + (r.c + 1);
-  $('#stVerses').innerHTML = vs.map((t, i) => {
+  $('#stVerses').innerHTML = ctxRow(r.b, r.c) + vs.map((t, i) => {
     const g = G(r.b, r.c, i);
     return '<div class="sv" data-g="' + g + '"><sup>' + (i + 1) + '</sup><span class="t">' + esc(txt(g, l)) + (S.lang === 'both' ? '<em>' + esc(txt(g, 'en')) + '</em>' : '') + '</span></div>';
   }).join('') + '<p class="st-hint">' + L('Atinge un verset pentru opțiuni · ține apăsat și trage în foaie', 'Tap a verse for options · long-press and drag onto the sheet') + '</p>';
@@ -1894,6 +1984,8 @@ function stRenderBible() {
   box.onclick = e => {
     if (STUDY.dragJustEnded) return;
     if (e.target.closest('[data-back]')) { stGoBack(); return; }
+    const cx = e.target.closest('[data-ctx]'); if (cx) { openCtx(cx.dataset.ctx); return; }
+    if (e.target.closest('[data-ctxs]')) { const rr = ref(STUDY.g); openCtxSearch(rr.b, rr.c); return; }
     const ac = e.target.closest('[data-va]'); if (ac) {
       e.stopPropagation(); const g = +ac.dataset.g, k = ac.dataset.va, bar = ac.closest('.sva'); hap(0);
       if (k === 'w') stWords(g, bar); else if (k === 'x') stXrefs(g, bar);
@@ -1964,9 +2056,10 @@ function stStrongPv(code, g) {
   pv.innerHTML = '<div class="st-pvc"><div class="st-pvh"><b>' + (heb ? L('Ebraică', 'Hebrew') : L('Greacă', 'Greek')) + ' · ' + code + '</b><button class="st-ib" data-pv="x">' + I.close + '</button></div>' +
     '<div class="st-lex"><span class="' + (heb ? 'heb' : 'grk') + '">' + esc(e[0]) + '</span><i>' + esc(e[1]) + (e[2] ? ' · ' + esc(e[2]) : '') + '</i></div>' +
     '<div class="st-pvd">' + sLink(def || '—') + (e[4] ? '<div class="st-kjv"><small>KJV</small> ' + sLink(e[4]) + '</div>' : '') + '</div>' +
-    '<div class="st-ext hidden"></div><div class="st-pvb"><button data-pv="copy">' + I.copy + L('Copiază', 'Copy') + '</button><button data-pv="ext">' + I.book + L('Pe larg', 'In depth') + '</button><button data-pv="more">' + I.search + L('Apariții', 'Occurrences') + '</button><button data-pv="add" class="pri">' + I.plus + L('În foaie', 'To sheet') + '</button></div></div>';
+    placeCard(code) + '<div class="st-ext hidden"></div><div class="st-pvb"><button data-pv="copy">' + I.copy + L('Copiază', 'Copy') + '</button><button data-pv="ext">' + I.book + L('Pe larg', 'In depth') + '</button><button data-pv="more">' + I.search + L('Apariții', 'Occurrences') + '</button><button data-pv="add" class="pri">' + I.plus + L('În foaie', 'To sheet') + '</button></div></div>';
   $('#study').appendChild(pv); hap(0);
   pv.onclick = ev => {
+    const au = ev.target.closest('a[data-url]'); if (au) { ev.preventDefault(); openUrl(au.href); return; }
     const sr = ev.target.closest('.sref'); if (sr) { stStrongPv(sr.dataset.s); return; }
     const vr = ev.target.closest('.vref'); if (vr) { stPreview(+vr.dataset.g, 0); return; }
     const b = ev.target.closest('[data-pv]');
@@ -2417,7 +2510,7 @@ window.addEventListener('resize', () => { if (STUDY.open) { $('#study').classNam
 updateTopicTab(); setMode('read'); window.__ready = true; try { stAutoStart(); } catch (e) {}
 if (WEB && 'serviceWorker' in navigator && location.protocol === 'https:') { try { navigator.serviceWorker.register('sw.js').catch(() => {}); } catch (e) {} }
 if (WEB && IOS && !STANDALONE && !S.instHint) { S.instHint = 1; persist(); setTimeout(() => toast(UI_EN ? 'Tip: ☰ → Install on iPhone' : 'Sfat: ☰ → Instalează pe iPhone'), 2500); }
-window.__t = { openWord, openStudy, closeStudy, stInsert, closeSheet, closePlans, openPlanDetail, openVerse, openWord, requestA11y }; window.__dbg = () => ({ mode, fy: FY.i, n: FY.items.length, pl: PL.i, wl: wheelLock - Date.now() }); syncGate(); try { A && A.ready && A.ready(); } catch (e) {}
+window.__t = { openCtx, placeCard, stNavGo: g => { STUDY.g = g; STUDY.sel = []; stRenderBible(); }, G, stStrongPv, openWord, openStudy, closeStudy, stInsert, closeSheet, closePlans, openPlanDetail, openVerse, openWord, requestA11y }; window.__dbg = () => ({ mode, fy: FY.i, n: FY.items.length, pl: PL.i, wl: wheelLock - Date.now() }); syncGate(); try { A && A.ready && A.ready(); } catch (e) {}
 setTimeout(() => loadLex(), 2500);
 })();
 
