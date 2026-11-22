@@ -83,9 +83,11 @@ function origWords(g) {
 }
 const B36 = x => parseInt(x, 36);
 function xrefs(g) { const s = (window.XREF || [])[g]; if (!s) return []; return s.split(',').map(t => { const [a, b] = t.split('-'); return { g: B36(a), span: b ? B36(b) : 0 }; }); }
-function xlabel(x, l) { let s = label(x.g, l); if (x.span) { const r = ref(x.g + x.span), r0 = ref(x.g); s += r.c === r0.c ? '-' + (r.v + 1) : '–' + (r.c + 1) + ':' + (r.v + 1); } return s; }
+function xlabel(x, l) { let s = slabel(x.g, l); if (x.span) { const r = ref(x.g + x.span), r0 = ref(x.g); s += r.c === r0.c ? '-' + (r.v + 1) : '–' + (r.c + 1) + ':' + (r.v + 1); } return s; }
 
 const label = (g, l) => { const r = ref(g); return BK[l][r.b] + ' ' + (r.c + 1) + ':' + (r.v + 1); };
+const BKA = { ro: ["Gen.", "Ex.", "Lev.", "Num.", "Deut.", "Ios.", "Jud.", "Rut", "1 Sam.", "2 Sam.", "1 Împ.", "2 Împ.", "1 Cron.", "2 Cron.", "Ezra", "Neem.", "Est.", "Iov", "Ps.", "Prov.", "Ecl.", "Cânt.", "Is.", "Ier.", "Plâng.", "Ezec.", "Dan.", "Osea", "Ioel", "Amos", "Obad.", "Iona", "Mica", "Naum", "Hab.", "Țef.", "Hag.", "Zah.", "Mal.", "Mat.", "Marc.", "Luca", "Ioan", "Fapt.", "Rom.", "1 Cor.", "2 Cor.", "Gal.", "Ef.", "Filip.", "Col.", "1 Tes.", "2 Tes.", "1 Tim.", "2 Tim.", "Tit", "Filim.", "Evr.", "Iac.", "1 Pet.", "2 Pet.", "1 Ioan", "2 Ioan", "3 Ioan", "Iuda", "Apoc."], en: ["Gen", "Exod", "Lev", "Num", "Deut", "Josh", "Judg", "Ruth", "1 Sam", "2 Sam", "1 Kgs", "2 Kgs", "1 Chr", "2 Chr", "Ezra", "Neh", "Esth", "Job", "Ps", "Prov", "Eccl", "Song", "Isa", "Jer", "Lam", "Ezek", "Dan", "Hos", "Joel", "Amos", "Obad", "Jonah", "Mic", "Nah", "Hab", "Zeph", "Hag", "Zech", "Mal", "Matt", "Mark", "Luke", "John", "Acts", "Rom", "1 Cor", "2 Cor", "Gal", "Eph", "Phil", "Col", "1 Thess", "2 Thess", "1 Tim", "2 Tim", "Titus", "Phlm", "Heb", "Jas", "1 Pet", "2 Pet", "1 John", "2 John", "3 John", "Jude", "Rev"] };
+const slabel = (g, l) => { const r = ref(g); return BKA[l][r.b] + ' ' + (r.c + 1) + ':' + (r.v + 1); };
 const VER = { ro: 'Cornilescu', en: 'KJV' };
 
 /* ---------- storage ---------- */
@@ -1293,8 +1295,8 @@ function bindExt(box, code, ctx) { // ctx: 'sheet' (word sheet) | 'study'
   const openG = g => { const p = document.getElementById('fnPop'); if (p) p.remove(); if (ctx === 'study') stPreview(g, 0); else openVerse(g, true); };
   const openS = c => { const p = document.getElementById('fnPop'); if (p) p.remove(); if (ctx === 'study') stStrongPv(c); else openWord(c, true); };
   const refsHtml = gs => '<div class="fn-h">' + (gs.length === 1 ? L('Trimitere', 'Reference') : gs.length + L(' trimiteri', ' references')) + '</div>' +
-    (gs.length === 1 ? '<button class="fn-r one" data-g="' + gs[0] + '"><b>' + esc(label(gs[0], l)) + '</b><span>' + esc(txt(gs[0], l)) + '</span></button><button class="fn-more" data-g="' + gs[0] + '">' + L('Deschide versetul', 'Open verse') + ' ›</button>'
-      : gs.slice(0, 40).map(g => '<button class="fn-r" data-g="' + g + '"><b>' + esc(label(g, l)) + '</b><span>' + esc(txt(g, l).slice(0, 90)) + (txt(g, l).length > 90 ? '…' : '') + '</span></button>').join(''));
+    (gs.length === 1 ? '<button class="fn-r one" data-g="' + gs[0] + '"><b>' + esc(slabel(gs[0], l)) + '</b><span>' + esc(txt(gs[0], l)) + '</span></button><button class="fn-more" data-g="' + gs[0] + '">' + L('Deschide versetul', 'Open verse') + ' ›</button>'
+      : gs.slice(0, 40).map(g => '<button class="fn-r" data-g="' + g + '"><b>' + esc(slabel(g, l)) + '</b><span>' + esc(txt(g, l).slice(0, 90)) + (txt(g, l).length > 90 ? '…' : '') + '</span></button>').join(''));
   box.onclick = e => {
     const fn = e.target.closest('.fn,[data-x=refs]');
     if (fn) { e.stopPropagation(); const gs = fn.dataset.gs.split(',').map(Number); fnPop(fn, refsHtml(gs), p => p.querySelectorAll('[data-g]').forEach(b => b.onclick = () => openG(+b.dataset.g))); return; }
@@ -1315,7 +1317,7 @@ function openWord(code, push, fromG) {
   const linkify = t => esc(t).replace(/\b([HG])(\d{1,4})\b/g, '<a data-s="$1$2">$1$2</a>');
   const oc = occurrences(code);
   let h = '<div class="wcard"><div class="wor ' + (heb ? 'heb' : 'grk') + '">' + esc(e[0]) + '</div><div class="wtr">' + esc(e[1]) + (e[2] ? ' · <i>' + esc(e[2]) + '</i>' : '') + '</div><div class="wmeta">' + (heb ? T('Ebraică (VT)') : T('Greacă (NT)')) + T(' · Strong ') + code + T(' · apare în ') + oc.gs.length + T(' versete</div></div>');
-  h += placeCard(code);
+  h += personMini(code, fromG) + placeCard(code);
   h += '<button class="btn ghost" id="wnt">' + I.pen + ' ' + L('Pune explicația în notițe', 'Add explanation to notes') + '</button>';
   h += T('<div class="sec">Semnificație și origine</div><p class="wdef">') + linkify(meaning(code, e) || '—') + '</p>';
   if (e[4]) h += T('<div class="sec">Cum e tradus în KJV</div><p class="wdef">') + linkify(e[4]) + '</p>';
@@ -1324,7 +1326,7 @@ function openWord(code, push, fromG) {
   h += T('<div class="sec">Unde mai apare</div>') + listItems(oc.gs.slice(0, 60), T('Nicio apariție.'), false);
   if (oc.gs.length > 60) h += T('<div class="hint">Primele 60 din ') + oc.gs.length + '.</div>';
   openSheet((heb ? T('Ebraică · ') : T('Greacă · ')) + e[1], h, body => {
-    body.querySelector('#wnt').onclick = () => stAddFromSheet({ type: 'w', code, g: fromG }); bindUrls(body);
+    body.querySelector('#wnt').onclick = () => stAddFromSheet({ type: 'w', code, g: fromG }); bindUrls(body); fillPersonMini(body); body.addEventListener('click', ev => { const pm = ev.target.closest('.pp-mini[data-p]'); if (pm) openPerson(+pm.dataset.p); });
     body.querySelectorAll('a[data-s]').forEach(a => a.onclick = () => openWord(a.dataset.s, true));
     loadExt(() => { const w = body.querySelector('#wext'); if (!w) return; w.innerHTML = extHtml(code); bindExt(w, code, 'sheet'); });
     body.querySelectorAll('.item').forEach(it => it.onclick = () => openVerse(+it.dataset.g, true));
@@ -1922,7 +1924,7 @@ function openCtx(id) {
   const n = (window.CTX || []).find(x => x.id === id); if (!n) return;
   const l = S.lang === 'en' ? 'en' : 'ro'; const used = [];
   const sup = ids => ids.length ? '<sup class="cs" data-cs="' + ids.join(',') + '">*' + ids.map(i => { let k = used.indexOf(i); if (k < 0) { used.push(i); k = used.length - 1; } return k + 1; }).join(',') + '</sup>' : '';
-  const refs = rs => (rs || []).map(ctxRef).filter(g => g != null).map(g => '<button class="cs-v" data-g="' + g + '">' + esc(label(g, l)) + '</button>').join('');
+  const refs = rs => (rs || []).map(ctxRef).filter(g => g != null).map(g => '<button class="cs-v" data-g="' + g + '">' + esc(slabel(g, l)) + '</button>').join('');
   let h = UI_EN ? '<p class="cs-note">' + 'These notes are written in Romanian.' + '</p>' : '';
   ['A', 'B', 'C', 'D', 'E'].forEach(k => {
     if (!n[k] || !n[k].length) return;
@@ -1971,6 +1973,86 @@ function placeCard(code) {
     '<div class="pl-l"><a href="https://pleiades.stoa.org/places/' + pid + '" data-url>Pleiades ↗</a><a href="https://www.openstreetmap.org/?mlat=' + la + '&mlon=' + lo + '#map=11/' + la + '/' + lo + '" data-url>' + L('Hartă online', 'Online map') + ' ↗</a></div></div>';
 }
 function bindUrls(box) { box.querySelectorAll('a[data-url]').forEach(a => a.onclick = ev => { ev.preventDefault(); ev.stopPropagation(); openUrl(a.href); }); }
+
+/* ===== Carduri de personaj (offline; people.js din STEPBible TIPNR, CC BY 4.0) ===== */
+let pplCbs = null;
+function loadPeople(cb) {
+  if (window.PEOPLE) { cb && cb(); return; }
+  if (pplCbs) { cb && pplCbs.push(cb); return; }
+  pplCbs = cb ? [cb] : []; const sc = document.createElement('script'); sc.src = 'people.js';
+  sc.onload = () => { const c = pplCbs; pplCbs = null; c.forEach(f => f()); };
+  sc.onerror = () => { pplCbs = null; };
+  document.head.appendChild(sc);
+}
+function pRefs(p) {
+  if (p._v) return p._v; const o = []; let prev = 0;
+  (p.v || '').split(',').forEach(x => { if (!x) return; prev += parseInt(x, 36); o.push(prev); });
+  return (p._v = o);
+}
+function pEncG(g) { const r = ref(g); return (r.b + 1) * 1000000 + (r.c + 1) * 1000 + (r.v + 1); }
+function pDecG(n) { const b = Math.floor(n / 1000000) - 1, c = Math.floor(n / 1000) % 1000 - 1, v = n % 1000 - 1; if (b < 0 || b >= NB || c < 0 || c >= VC[b].length || v < 0 || v >= VC[b][c]) return null; return G(b, c, v); }
+function personFor(code, g) {
+  if (!window.PEOPLE_CODE) return -1; const ids = PEOPLE_CODE[code]; if (!ids || !ids.length) return -1;
+  if (g != null && ids.length > 1) { const e = pEncG(g); const hit = ids.find(i => pRefs(PEOPLE[i]).indexOf(e) >= 0); if (hit != null) return hit; }
+  return ids.slice().sort((a, b) => PEOPLE[b].c - PEOPLE[a].c)[0];
+}
+const pShort = n => String(n || '').replace(/\s*\(.*\)\s*$/, '');
+function pChips(ids) { return (ids || []).map(i => '<button class="pp-chip" data-p="' + i + '">' + esc(pShort(PEOPLE[i].n)) + '</button>').join(''); }
+function pRefBtn(n, l) { const g = pDecG(n); return g == null ? '' : '<button class="cs-v" data-g="' + g + '">' + esc(slabel(g, l)) + '</button>'; }
+function pTemplate(p) {
+  const rel = (ids, m, f) => ids && ids.length ? (p.s === 2 ? f : m) + ' ' + ids.slice(0, 3).map(i => pShort(PEOPLE[i].n)).join(', ') : '';
+  const bits = [];
+  const fa = (p.fa || []).filter(i => PEOPLE[i].s !== 2), mo = (p.fa || []).filter(i => PEOPLE[i].s === 2);
+  if (fa.length) bits.push((p.s === 2 ? 'Fiica lui ' : 'Fiul lui ') + fa.map(i => pShort(PEOPLE[i].n)).join(' sau '));
+  if (mo.length) bits.push('mama: ' + mo.map(i => pShort(PEOPLE[i].n)).join(', '));
+  if (p.sp && p.sp.length) bits.push((p.s === 2 ? 'soția lui ' : 'soțul ') + p.sp.slice(0, 2).map(i => pShort(PEOPLE[i].n)).join(', '));
+  const k = rel(p.ch, 'tatăl lui', 'mama lui'); if (k) bits.push(k + (p.ch.length > 3 ? ' ș.a.' : ''));
+  return bits.length ? bits.join('; ') + '.' : '';
+}
+function personMini(code, g) {
+  if (!window.PEOPLE) return '<div class="pp-mini" data-pcode="' + code + '" data-pg="' + (g == null ? '' : g) + '"></div>';
+  const i = personFor(code, g); if (i < 0) return '';
+  const p = PEOPLE[i];
+  return '<button class="pp-mini on" data-p="' + i + '"><span class="pp-av">' + esc(pShort(p.n).slice(0, 1)) + '</span><span class="pp-mt"><b>' + esc(pShort(p.n)) + '</b><small>' + esc([p.r, p.p].filter(Boolean).join(' · ')) + ' · ' + p.c + L(' mențiuni', ' mentions') + '</small></span><span class="pp-go">' + L('Card', 'Card') + ' ›</span></button>';
+}
+function fillPersonMini(box) {
+  const m = box.querySelector('.pp-mini[data-pcode]'); if (!m) return;
+  loadPeople(() => { const h = personMini(m.dataset.pcode, m.dataset.pg === '' ? null : +m.dataset.pg); if (m.isConnected) m.outerHTML = h || ''; });
+}
+function openPerson(i) {
+  if (!window.PEOPLE) { loadPeople(() => openPerson(i)); return; }
+  const p = PEOPLE[i]; if (!p) return; const l = S.lang === 'en' ? 'en' : 'ro';
+  const x = p.x || {}; const used = [];
+  const sup = ids => '<sup class="cs" data-cs="' + ids.join(',') + '">*' + ids.map(id => { let k = used.indexOf(id); if (k < 0) { used.push(id); k = used.length - 1; } return k + 1; }).join(',') + '</sup>';
+  let h = '<div class="pp-sub">' + esc([p.r, p.p, p.t].filter(Boolean).join(' · ')) + (p.e && pShort(p.n) !== p.e ? '<small> · ' + esc(p.e) + '</small>' : '') + '</div>';
+  h += '<div class="pp-stats">' +
+    '<div><b>' + p.c + '</b><small>' + L('mențiuni', 'mentions') + '</small></div>' +
+    '<div><b>' + p.b + '</b><small>' + L(p.b === 1 ? 'carte' : 'cărți', p.b === 1 ? 'book' : 'books') + '</small></div>' +
+    '<div><b>' + (x.age ? esc(x.age.split(/[:(]/)[0].replace(/^cca\. /, '~').trim()) : '—') + '</b><small>' + L('vârstă / domnie', 'age / reign') + '</small></div>' +
+    '<div>' + pRefBtn(p.f, l) + '<small>' + L('prima mențiune', 'first mention') + '</small></div></div>';
+  const bio = p.d || pTemplate(p);
+  if (bio) h += '<div class="cs-sec cs-B"><div class="cs-cat"><i>B</i>' + L('Pe scurt, după textul biblic', 'In brief, from the biblical text') + '</div><p>' + esc(bio) + '</p></div>';
+  if (x.age || x.loc) h += '<div class="pp-facts">' + (x.age ? '<div><span>' + L('Cât a trăit', 'Lifespan') + '</span>' + esc(x.age) + '</div>' : '') + (x.loc ? '<div><span>' + L('Unde', 'Where') + '</span>' + esc(x.loc) + '</div>' : '') + '</div>';
+  else if (p.pl && p.pl.length) h += '<div class="pp-facts"><div><span>' + L('Locuri', 'Places') + '</span>' + esc(p.pl.join(', ')) + '<small> — ' + L('pomenite des împreună cu el/ea', 'often mentioned together') + '</small></div></div>';
+  if (x.r && x.r.length) h += '<div class="pp-sec"><div class="cs-cat">' + L('Repere', 'Milestones') + '</div>' + x.r.map(([t, rs]) => '<div class="pp-ev"><span>' + esc(t) + '</span><span class="cs-vs">' + rs.split(';').map(ctxRef).filter(g => g != null).map(g => '<button class="cs-v" data-g="' + g + '">' + esc(slabel(g, l)) + '</button>').join('') + '</span></div>').join('') + '</div>';
+  const fam = [[L('Părinți', 'Parents'), p.fa], [L('Frați / surori', 'Siblings'), p.si], [L('Soț / soție', 'Spouse'), p.sp], [L('Copii', 'Children'), p.ch]].filter(f => f[1] && f[1].length);
+  if (fam.length) h += '<div class="pp-sec"><div class="cs-cat">' + L('Familie', 'Family') + '</div>' + fam.map(f => '<div class="pp-fam"><span>' + f[0] + '</span><div>' + pChips(f[1]) + '</div></div>').join('') + '</div>';
+  if (p.a && p.a.length) h += '<div class="cs-sec cs-A"><div class="cs-cat"><i>A</i>' + L('Atestat în afara Bibliei', 'Attested outside the Bible') + '</div>' + p.a.map(([t, ids]) => '<p>' + esc(t) + sup(ids) + '</p>').join('') + '</div>';
+  h += '<div class="xbar"><button class="xb" data-cx="all">' + L('Toate mențiunile', 'All mentions') + ' <small>' + p.c + '</small></button>' + (used.length ? '<button class="xb" data-cx="src">* ' + L('Surse', 'Sources') + '</button>' : '') + '</div>';
+  h += '<p class="cs-note"><sup class="cs" data-cs="__tipnr">*</sup> ' + L('Date despre familie și mențiuni: STEPBible TIPNR (CC BY 4.0). Textul în română e scris pentru aplicație și rezumă relatarea biblică.', 'Family and mention data: STEPBible TIPNR (CC BY 4.0).') + '</p>';
+  ctxOverlay(pShort(p.n), h, ov => {
+    ov.querySelector('.ctx-card').classList.add('pp-card');
+    ov.querySelector('.ctx-bd').addEventListener('click', e => {
+      const pc = e.target.closest('[data-p]'); if (pc) { e.stopPropagation(); openPerson(+pc.dataset.p); return; }
+      const c = e.target.closest('.cs');
+      if (c) { e.stopPropagation(); const html = c.dataset.cs === '__tipnr' ? '<div class="fn-h">' + L('Sursa datelor', 'Data source') + '</div><div class="cs-card"><b>STEPBible — TIPNR (Translators Individualised Proper Names with all References)</b><span>STEPBible.org / Tyndale House, Cambridge</span><small>CC BY 4.0 · ' + L('date structurate', 'structured data') + '</small><a href="https://github.com/STEPBible/STEPBible-Data" data-url>' + L('Deschide sursa (online)', 'Open source (online)') + ' ↗</a></div>' : '<div class="fn-h">' + L('Sursa', 'Source') + '</div>' + c.dataset.cs.split(',').map(srcCard).join(''); fnPop(c, html, bindUrls); return; }
+      const v = e.target.closest('.cs-v'); if (v) { e.stopPropagation(); const g = +v.dataset.g; ov.remove(); if (document.getElementById('study')) stPreview(g, 0); else openVerse(g, true); return; }
+      const xb = e.target.closest('[data-cx]'); if (!xb) return; e.stopPropagation();
+      if (xb.dataset.cx === 'src') fnPop(xb, '<div class="fn-h">' + L('Surse', 'Sources') + '</div>' + used.map((id, k) => '<div class="cs-n">' + (k + 1) + '</div>' + srcCard(id)).join(''), bindUrls);
+      else { const gs = pRefs(p).map(pDecG).filter(g => g != null); fnPop(xb, '<div class="fn-h">' + L('Mențiuni', 'Mentions') + ' · ' + gs.length + '</div>' + gs.slice(0, 120).map(g => '<button class="fn-r" data-g="' + g + '"><b>' + esc(slabel(g, l)) + '</b><span>' + esc(txt(g, l).slice(0, 80)) + '…</span></button>').join(''), pop => pop.querySelectorAll('.fn-r').forEach(b => b.onclick = () => { const g = +b.dataset.g; ov.remove(); pop.remove(); if (document.getElementById('study')) stPreview(g, 0); else openVerse(g, true); })); }
+    });
+  });
+}
 function stRenderBible() {
   const r = ref(STUDY.g), l = stLang(), vs = BIB[l][r.b][r.c];
   $('#stBook').textContent = BK[l][r.b] + ' ' + (r.c + 1);
@@ -2056,9 +2138,10 @@ function stStrongPv(code, g) {
   pv.innerHTML = '<div class="st-pvc"><div class="st-pvh"><b>' + (heb ? L('Ebraică', 'Hebrew') : L('Greacă', 'Greek')) + ' · ' + code + '</b><button class="st-ib" data-pv="x">' + I.close + '</button></div>' +
     '<div class="st-lex"><span class="' + (heb ? 'heb' : 'grk') + '">' + esc(e[0]) + '</span><i>' + esc(e[1]) + (e[2] ? ' · ' + esc(e[2]) : '') + '</i></div>' +
     '<div class="st-pvd">' + sLink(def || '—') + (e[4] ? '<div class="st-kjv"><small>KJV</small> ' + sLink(e[4]) + '</div>' : '') + '</div>' +
-    placeCard(code) + '<div class="st-ext hidden"></div><div class="st-pvb"><button data-pv="copy">' + I.copy + L('Copiază', 'Copy') + '</button><button data-pv="ext">' + I.book + L('Pe larg', 'In depth') + '</button><button data-pv="more">' + I.search + L('Apariții', 'Occurrences') + '</button><button data-pv="add" class="pri">' + I.plus + L('În foaie', 'To sheet') + '</button></div></div>';
-  $('#study').appendChild(pv); hap(0);
+    placeCard(code) + personMini(code, g) + '<div class="st-ext hidden"></div><div class="st-pvb"><button data-pv="copy">' + I.copy + L('Copiază', 'Copy') + '</button><button data-pv="ext">' + I.book + L('Pe larg', 'In depth') + '</button><button data-pv="more">' + I.search + L('Apariții', 'Occurrences') + '</button><button data-pv="add" class="pri">' + I.plus + L('În foaie', 'To sheet') + '</button></div></div>';
+  $('#study').appendChild(pv); hap(0); fillPersonMini(pv);
   pv.onclick = ev => {
+    const pm = ev.target.closest('.pp-mini[data-p]'); if (pm) { openPerson(+pm.dataset.p); return; }
     const au = ev.target.closest('a[data-url]'); if (au) { ev.preventDefault(); openUrl(au.href); return; }
     const sr = ev.target.closest('.sref'); if (sr) { stStrongPv(sr.dataset.s); return; }
     const vr = ev.target.closest('.vref'); if (vr) { stPreview(+vr.dataset.g, 0); return; }
@@ -2147,7 +2230,7 @@ function stRunFind() {
 function stFRow(g, l, nq) {
   const raw = txt(g, l); let t = esc(raw.length > 160 ? raw.slice(0, 160) + '…' : raw);
   if (nq && nq.length >= 2) { const n = norm(raw), p = n.indexOf(nq); if (p >= 0 && p < 160) t = esc(raw.slice(0, p)) + '<mark>' + esc(raw.slice(p, p + nq.length)) + '</mark>' + esc(raw.slice(p + nq.length, 160)) + (raw.length > 160 ? '…' : ''); }
-  return '<div class="sxr srow" data-g="' + g + '" data-sp="0"><b>' + esc(label(g, l)) + '</b><p>' + t + '</p></div>';
+  return '<div class="sxr srow" data-g="' + g + '" data-sp="0"><b>' + esc(slabel(g, l)) + '</b><p>' + t + '</p></div>';
 }
 function stClosePv() { const p = $('#stPv'); if (p) { p.remove(); return true; } return false; }
 function stMarkSel() {
@@ -2510,7 +2593,7 @@ window.addEventListener('resize', () => { if (STUDY.open) { $('#study').classNam
 updateTopicTab(); setMode('read'); window.__ready = true; try { stAutoStart(); } catch (e) {}
 if (WEB && 'serviceWorker' in navigator && location.protocol === 'https:') { try { navigator.serviceWorker.register('sw.js').catch(() => {}); } catch (e) {} }
 if (WEB && IOS && !STANDALONE && !S.instHint) { S.instHint = 1; persist(); setTimeout(() => toast(UI_EN ? 'Tip: ☰ → Install on iPhone' : 'Sfat: ☰ → Instalează pe iPhone'), 2500); }
-window.__t = { openCtx, placeCard, stNavGo: g => { STUDY.g = g; STUDY.sel = []; stRenderBible(); }, G, stStrongPv, openWord, openStudy, closeStudy, stInsert, closeSheet, closePlans, openPlanDetail, openVerse, openWord, requestA11y }; window.__dbg = () => ({ mode, fy: FY.i, n: FY.items.length, pl: PL.i, wl: wheelLock - Date.now() }); syncGate(); try { A && A.ready && A.ready(); } catch (e) {}
+window.__t = { openPerson, loadPeople, openCtx, placeCard, stNavGo: g => { STUDY.g = g; STUDY.sel = []; stRenderBible(); }, G, stStrongPv, openWord, openStudy, closeStudy, stInsert, closeSheet, closePlans, openPlanDetail, openVerse, openWord, requestA11y }; window.__dbg = () => ({ mode, fy: FY.i, n: FY.items.length, pl: PL.i, wl: wheelLock - Date.now() }); syncGate(); try { A && A.ready && A.ready(); } catch (e) {}
 setTimeout(() => loadLex(), 2500);
 })();
 
