@@ -1,6 +1,6 @@
 (function () {
 'use strict';
-const APP_VER = '7.8';
+const APP_VER = '7.9';
 const $ = s => document.querySelector(s);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const A = window.Android || null;
@@ -829,8 +829,9 @@ function wordTap(t) {
   const w = t.closest && t.closest('.w'); if (!w) return;
   w.classList.add('tap'); setTimeout(() => w.classList.remove('tap'), 400);
   const g = curG();
-  if (w.dataset.s) openWord(w.dataset.s.split(' ').filter(x => x !== 'H853')[0] || w.dataset.s.split(' ')[0], false, g);
-  else openVerse(g, false, 'words', w.textContent);
+  const code = w.dataset.s ? (w.dataset.s.split(' ').filter(x => x !== 'H853')[0] || w.dataset.s.split(' ')[0]) : null;
+  const go = () => code ? openWord(code, false, g) : openVerse(g, false, 'words', w.textContent);
+  loadDict(err => loadLex(() => { const x = !err && dMatch(g, w.textContent); if (x && (DICT_E[x.hw] || DICT_H[x.hw])) dictPop(w, x, go); else go(); }));
 }
 let lpT = 0, lpFired = false;
 feed.addEventListener('touchstart', e => { lpFired = false; clearTimeout(lpT); if (e.target.closest('[data-act=narr]')) lpT = setTimeout(() => { lpFired = true; haptic(); WEB ? openVoicePicker() : openNarrVoices(); }, 550);
@@ -1318,6 +1319,103 @@ function bindExt(box, code, ctx) { // ctx: 'sheet' (word sheet) | 'study'
     if (x.dataset.x === 'src') fnPop(x, '<div class="fn-h">' + L('Surse', 'Sources') + '</div>' + extSources(code), p => p.querySelectorAll('[data-url]').forEach(a => a.onclick = ev => { ev.preventDefault(); try { A && A.openUrl ? A.openUrl(a.href) : window.open(a.href, '_blank'); } catch (er) {} }));
   };
 }
+/* Bible dictionary: Easton's Illustrated Bible Dictionary (1897) + Hitchcock's Bible Names (public domain).
+   Tapping a word in a verse looks for an entry among the KJV words of that verse; Romanian words are matched
+   through the Romanian Strong definitions. Text is the English original for now. */
+let dictCbs = null, DIDX = null;
+function loadDict(cb) {
+  if (window.DICT_E) { cb && cb(); return; }
+  if (dictCbs) { cb && dictCbs.push(cb); return; }
+  dictCbs = cb ? [cb] : []; const sc = document.createElement('script'); sc.src = 'dict.js';
+  sc.onload = () => { const c = dictCbs; dictCbs = null; c.forEach(f => f()); };
+  sc.onerror = () => { const c = dictCbs; dictCbs = null; toast(L('Dicționarul nu s-a putut încărca', 'Dictionary failed to load')); c.forEach(f => f(1)); };
+  document.head.appendChild(sc);
+}
+const DSTOP = new Set('a an am as at be by do go he i if in is it me my no of on or so to up us we ye o oh lo ah ar er ai ur'.split(' '));
+function dIdx() { if (DIDX) return DIDX; DIDX = {}; Object.keys(window.DICT_E || {}).forEach(k => { const l = k.toLowerCase(); if (!DIDX[l]) DIDX[l] = k; }); Object.keys(window.DICT_H || {}).forEach(k => { const l = k.toLowerCase(); if (!DIDX[l]) DIDX[l] = k; }); return DIDX; }
+function dLemma(w0, cap) {
+  let w = String(w0).replace(/[’']s$/i, '').replace(/[^A-Za-z\- ]/g, '').trim(); if (!w) return null;
+  const isCap = /^[A-Z]/.test(w); w = w.toLowerCase(); const I = dIdx(); const c = [w];
+  if (/ies$/.test(w)) c.push(w.slice(0, -3) + 'y'); if (/ves$/.test(w)) c.push(w.slice(0, -3) + 'f', w.slice(0, -3) + 'fe'); if (/men$/.test(w)) c.push(w.slice(0, -3) + 'man'); if (/ren$/.test(w)) c.push(w.slice(0, -3));
+  if (/es$/.test(w)) c.push(w.slice(0, -2)); if (/s$/.test(w)) c.push(w.slice(0, -1)); else c.push(w + 's');
+  for (const x of c) if (I[x] && !DSTOP.has(x) && (x.length > 2 || (isCap && cap))) return I[x];
+  return null;
+}
+function dVerse(g) {
+  const raw = rawv(g, 'en'), P = isNT(g) ? 'G' : 'H', out = [], seen = {}; let m; TAGRE.lastIndex = 0;
+  while ((m = TAGRE.exec(raw))) {
+    const ss = m[2].split('.').filter(n => n !== '853').map(n => P + n), ws = m[1].split(/\s+/);
+    for (const w of [m[1]].concat(ws.slice().reverse())) { const hw = dLemma(w, true); if (hw) { if (!seen[hw]) { seen[hw] = 1; out.push({ hw, s: ss, en: m[1] }); } break; } }
+  }
+  return out;
+}
+const dNorm = s => String(s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z]/g, '');
+const DRO = { chivot: 'Ark', corabi: 'Ark', heruvim: 'Cherub', serafim: 'Seraphim', cort: 'Tabernacle', tabernacol: 'Tabernacle', templ: 'Temple', jertfelnic: 'Altar', altar: 'Altar', tamai: 'Incense', paste: 'Passover', sabat: 'Sabbath', taier: 'Circumcision', circumciz: 'Circumcision', botez: 'Baptism, Christian', legamant: 'Covenant', har: 'Grace', mantuir: 'Salvation', ispasir: 'Atonement', pocainta: 'Repentance', credint: 'Faith', nadejd: 'Hope', dragoste: 'Love', rascumpar: 'Redemption', proroc: 'Prophet', preot: 'Priest', marepreot: 'High priest', levit: 'Levite', fariseu: 'Pharisees', saduche: 'Sadducees', carturar: 'Scribes', vames: 'Publican', samaritean: 'Samaritans', sinagog: 'Synagogue', sinedri: 'Sanhedrim', apostol: 'Apostle', ucenic: 'Disciple', bisericii: 'Church', biseric: 'Church', ingeri: 'Angel', inger: 'Angel', diavol: 'Devil', satan: 'Satan', demon: 'Demon', duhulsfant: 'Holy Ghost', mana: 'Manna', mir: 'Myrrh', smirn: 'Myrrh', tamaia: 'Frankincense', isop: 'Hyssop', smochin: 'Fig', maslin: 'Olive', vita: 'Vine', strugur: 'Grape', cedru: 'Cedar', salcam: 'Shittim', porumb: 'Dove', vultur: 'Eagle', leu: 'Lions', mielu: 'Lamb', miel: 'Lamb', berbec: 'Ram', tap: 'Goat', taur: 'Bullock', capr: 'Goat', camil: 'Camel', magar: 'Ass', sarpe: 'Serpent', sarpel: 'Serpent', balaur: 'Dragon', stea: 'Stars', curcubeu: 'Rainbow', potop: 'Deluge', pustie: 'Wilderness', pustiu: 'Wilderness', cetat: 'City', poart: 'Gate', zid: 'Wall', fantan: 'Well', vistier: 'Treasury', candel: 'Candlestick', sfesnic: 'Candlestick', efod: 'Ephod', urim: 'Urim', tumim: 'Thummim', trambit: 'Trumpets', harf: 'Harp', jug: 'Yoke', secer: 'Harvest', seceris: 'Harvest', aria: 'Threshing', talant: 'Talent', siclu: 'Shekel', dinar: 'Penny', cot: 'Cubit', vamesi: 'Publican', crucea: 'Cross', cruce: 'Cross', rastign: 'Crucifixion', inviere: 'Resurrection of the dead', jertf: 'Sacrifice', ardere: 'Burnt offering', prinos: 'Offering', untdelemn: 'Oil', ungere: 'Anoint', uns: 'Anoint', mesia: 'Messiah', hristos: 'Christ', domnul: 'Lord', dumnezeu: 'God' };
+const DROK = Object.keys(DRO).sort((a, b) => b.length - a.length);
+function dRo(list, t, only) { for (const k of DROK) if (t.startsWith(k) && (k.length > 4 || t.length <= k.length + 3)) { const hw = DRO[k]; const x = list.find(y => y.hw === hw); if (x) return x; if (!only && DICT_E[hw]) return { hw, s: [], en: hw }; } return null; }
+function dMatch(g, word) {
+  const list = dVerse(g); if (!list.length) return null; const t = dNorm(word); if (t.length < 3) return null;
+  const en = dLemma(word, true); if (en) { const x = list.find(y => y.hw === en); if (x) return x; }
+  for (const x of list) if (dNorm(x.hw) === t) return x;
+  const ro = dRo(list, t, 1); if (ro) return ro;
+  const st = t.length > 5 ? t.slice(0, t.length - 2) : t.length > 3 ? t.slice(0, t.length - 1) : t;
+  let best = null, bi = 1e9;
+  for (const x of list) for (const s of x.s) {
+    const d = (window.LEX_RO || {})[s]; if (!d) continue;
+    const words = d.replace(/H\d+|G\d+/g, ' ').split(/[^A-Za-zĂÂÎȘȚăâîșțşţ]+/).map(dNorm).filter(Boolean);
+    const i = words.findIndex(z => z.length >= 3 && (z.startsWith(st) || (z.length >= 4 && t.startsWith(z.slice(0, Math.max(4, z.length - 2))))));
+    if (i >= 0 && i < bi) { bi = i; best = x; }
+  }
+  return best || dRo(list, t);
+}
+function dPlain(hw) { return (DICT_E[hw] || []).map(p => p.replace(/<a data-r[^>]*>[^<]*<\/a>/g, '').replace(/\(\s*(?:Comp\.|comp\.|See|see)?[\s,;.]*\)/g, '').replace(/\s+([,.;:])/g, '$1').replace(/\s{2,}/g, ' ')).join(' '); }
+function dictPop(anchor, x, fallback) {
+  const hw = x.hw, H = DICT_H[hw], E = DICT_E[hw]; let t = E ? dPlain(hw) : ''; if (t.length > 420) t = t.slice(0, 400).replace(/\s\S*$/, '') + '…';
+  fnPop(anchor, '<div class="fn-h">' + esc(hw) + ' · ' + L('Dicționar biblic', 'Bible dictionary') + '</div>' +
+    (H ? '<p class="dh"><b>' + L('Sensul numelui', 'Name meaning') + ':</b> ' + esc(H) + '</p>' : '') +
+    (t ? '<p class="dtx" lang="en">' + t + '</p>' : '') +
+    (E ? '<button class="fn-more" data-dfull>' + L('Articolul complet', 'Full article') + ' ›</button>' : '') +
+    (fallback ? '<button class="fn-more" data-dorig>' + L('Cuvântul original și versetul', 'Original word & verse') + ' ›</button>' : '') +
+    '<small class="dsrc">Easton 1897' + (H ? ' · Hitchcock' : '') + (S.lang !== 'en' ? ' · ' + L('text original în engleză', 'English original') : '') + '</small>',
+    p => { const f = p.querySelector('[data-dfull]'); if (f) f.onclick = () => { p.remove(); openDict(hw); }; const o = p.querySelector('[data-dorig]'); if (o) o.onclick = () => { p.remove(); fallback(); }; });
+}
+function dictHtml(hw) {
+  const all = []; const H = DICT_H[hw];
+  const body = (DICT_E[hw] || []).map(h => {
+    h = h.replace(/<a data-r="(\d+)\.(\d+)\.(\d+)">[^<]*<\/a>/g, (m, b, c, v) => { b = +b; c = +c - 1; v = +v - 1; if (b >= NB || c < 0 || c >= VC[b].length || v < 0 || v >= VC[b][c]) return ''; return '\u0001' + G(b, c, v) + '\u0002'; });
+    h = h.replace(/\(?\s*(?:(?:Comp\.|comp\.|See|see)\s*)?(?:\u0001\d+\u0002[\s,;.]*(?:and|comp\.|Comp\.)?[\s,;]*)+\)?/g, run => {
+      const gs = [...run.matchAll(/\u0001(\d+)\u0002/g)].map(x => +x[1]); if (!gs.length) return run;
+      all.push(...gs); return '<sup class="fn" data-gs="' + gs.join(',') + '">*' + (gs.length > 1 ? gs.length : '') + '</sup> ';
+    }).replace(/\s+(<sup)/g, '$1').replace(/\s+([,;.])/g, '$1');
+    return '<div class="xs"><div class="xh" lang="en">' + h + '</div></div>';
+  }).join('');
+  const uniq = [...new Set(all)];
+  return (H ? '<p class="dh"><b>' + L('Sensul numelui', 'Name meaning') + ' (Hitchcock):</b> ' + esc(H) + '</p>' : '') +
+    (S.lang !== 'en' ? '<p class="hint">' + L('Textul e deocamdată în engleză (originalul din 1897); traducerea în română vine într-o versiune următoare.', 'English original (1897).') + '</p>' : '') + body +
+    '<div class="xbar">' + (uniq.length ? '<button class="xb" data-x="refs" data-gs="' + uniq.join(',') + '">* ' + L('Trimiteri', 'References') + ' <small>' + uniq.length + '</small></button>' : '') +
+    '<button class="xb" data-dsrc>' + L('Surse', 'Sources') + '</button></div>';
+}
+const DICT_SRC = () => '<div class="xsrcs"><p><b>M. G. Easton, <i>Illustrated Bible Dictionary</i></b>, ' + L('ed. a 3-a', '3rd ed.') + ', Thomas Nelson, 1897<br><small>' + L('domeniu public · dicționar biblic general', 'public domain · general Bible dictionary') + '</small></p>' +
+  '<p><b>Roswell D. Hitchcock, <i>Hitchcock’s Bible Names Dictionary</i></b> ' + L('(din „New and Complete Analysis of the Holy Bible”, sec. XIX)', '(from “New and Complete Analysis of the Holy Bible”, 19th c.)') + '<br><small>' + L('domeniu public · sensul numelor proprii; etimologiile lui sunt adesea depășite', 'public domain · meaning of proper names; its etymologies are often dated') + '</small></p>' +
+  '<p class="xlinks"><a href="https://github.com/garydavenport73/eastons-bible-dictionary-json" data-url>Easton · ' + L('text digital (GitHub)', 'digital text (GitHub)') + '</a><a href="https://github.com/BradyStephenson/bible-data" data-url>Hitchcock · BibleData (CC BY 4.0)</a><a href="https://www.biblegateway.com/resources/dictionaries/info/" data-url>Bible Gateway · ' + L('despre dicționare', 'about the dictionaries') + '</a></p></div>';
+function openDict(hw, push) {
+  if (!window.DICT_E) { loadDict(e => !e && openDict(hw, push)); return; }
+  openSheet(hw + ' · ' + L('Dicționar biblic', 'Bible dictionary'), '<div class="wext dict">' + dictHtml(hw) + '</div>', body => {
+    const box = body.querySelector('.wext'); bindExt(box, null, 'sheet');
+    box.addEventListener('click', e => { const s = e.target.closest('[data-dsrc]'); if (!s) return; e.stopPropagation(); fnPop(s, '<div class="fn-h">' + L('Surse', 'Sources') + '</div>' + DICT_SRC(), p => p.querySelectorAll('[data-url]').forEach(a => a.onclick = ev => { ev.preventDefault(); try { A && A.openUrl ? A.openUrl(a.href) : window.open(a.href, '_blank'); } catch (er) {} })); });
+  }, push || sheetOpen());
+}
+function openDictSearch() {
+  loadDict(err => { if (err) return;
+    openSheet(L('Dicționar biblic', 'Bible dictionary'), '<input class="search" id="dq" placeholder="' + L('Caută în dicționar (în engleză: Abraham, altar, tabernacle…)', 'Search the dictionary (Abraham, altar…)') + '" autocomplete="off"><div id="dres"></div><p class="hint">Easton 1897 · Hitchcock · ' + L('atinge un cuvânt dintr-un verset ca să-l deschizi direct', 'tap a word in a verse to open it directly') + '</p>', body => {
+      const q = body.querySelector('#dq'), res = body.querySelector('#dres'), keys = Object.keys(DICT_E).concat(Object.keys(DICT_H).filter(k => !DICT_E[k]));
+      const run = () => { const v = dNorm(q.value); if (!v) { res.innerHTML = ''; return; } const hit = keys.filter(k => dNorm(k).startsWith(v)).slice(0, 60);
+        res.innerHTML = hit.length ? hit.map(k => '<button class="mitem" data-hw="' + esc(k) + '"><b>' + esc(k) + '</b><small>' + esc((DICT_H[k] || '').slice(0, 40)) + '</small></button>').join('') : '<div class="empty">' + T('Niciun rezultat.') + '</div>';
+        res.querySelectorAll('[data-hw]').forEach(b => b.onclick = () => DICT_E[b.dataset.hw] ? openDict(b.dataset.hw, true) : dictPop(b, { hw: b.dataset.hw })); };
+      q.oninput = run; setTimeout(() => q.focus(), 60);
+    }, sheetOpen());
+  });
+}
 function openWord(code, push, fromG) {
   if (!window.LEX_H) { loadLex(() => openWord(code, push, fromG)); return; }
   const e = lexEntry(code); const l = S.lang === 'en' ? 'en' : 'ro';
@@ -1687,6 +1785,7 @@ function openMenu() {
     (NOGATE ? '' : '<button class="mitem" data-m="block">' + I.shield + T('Blocare aplicații de scrolling<small>') + (hardUntil() > Date.now() ? T('🔒 până ') + hhmm(hardUntil()) : S.gate.on ? T('activă') : T('oprită')) + '</small></button>') +
     '<button class="mitem" data-m="stats">' + I.chart + T('Statistici și progres</button>') +
     '<button class="mitem" data-m="topics">' + I.tags + T('Versete pe teme<small>') + ((TOPICS.find(t => t[0] === S.topic) || [0, '', T('toate')])[2]) + '</small></button>' +
+    '<button class="mitem" data-m="dict">' + I.book + L('Dicționar biblic', 'Bible dictionary') + '<small>Easton · Hitchcock</small></button>' +
     '<button class="mitem" data-m="search">' + I.search + T('Caută și alege carte/capitol</button>') +
     '<button class="mitem" data-m="saved">' + I.save + T('Versete salvate<small>') + nS + '</small></button>' +
     '<button class="mitem" data-m="liked">' + I.heart + T('Versete apreciate<small>') + nL + '</small></button>' +
@@ -1698,6 +1797,7 @@ function openMenu() {
     const m = b.dataset.m;
     if (m === 'study') { closeSheet(); openStudy(); return; }
     if (m === 'sleep') { openSleep(true); return; }
+    if (m === 'dict') { openDictSearch(); return; }
     if (m === 'books') { openBooks(); } else if (m === 'search') openSearch(); else if (m === 'saved') openSaved('saved'); else if (m === 'liked') openSaved('liked');
     else if (m === 'votd') { closeSheet(); showVotd(); } else if (m === 'set') openSettings(); else if (m === 'stats') openStats(); else if (m === 'priv') openPrivacy(); else if (m === 'inst') openInstall(); else if (m === 'topics') openTopics(); else if (m === 'plans') { closeSheet(); openPlans(); } else if (m === 'block') openBlock();
   }));
@@ -2967,7 +3067,7 @@ updateTopicTab(); setMode('read'); window.__ready = true; try { stAutoStart(); }
 if (WEB && 'serviceWorker' in navigator && location.protocol === 'https:') { try { navigator.serviceWorker.register('sw.js').catch(() => {}); } catch (e) {} }
 if (WEB && IOS && !STANDALONE && !S.instHint) { S.instHint = 1; persist(); setTimeout(() => toast(UI_EN ? 'Tip: ☰ → Install on iPhone' : 'Sfat: ☰ → Instalează pe iPhone'), 2500); }
 try { const wm = document.createElement('div'); wm.id = 'verWm'; wm.textContent = 'V' + APP_VER; document.body.appendChild(wm); } catch (e) {}
-window.__t = { rc: () => readCount, openChron, crZoomTo, openPerson, openMap, loadGeo, placesInChapter, loadPeople, openCtx, placeCard, stNavGo: g => { STUDY.g = g; STUDY.sel = []; stRenderBible(); }, G, stStrongPv, openWord, openStudy, closeStudy, stInsert, closeSheet, closePlans, openPlanDetail, openVerse, openWord, requestA11y }; window.__dbg = () => ({ mode, fy: FY.i, n: FY.items.length, pl: PL.i, wl: wheelLock - Date.now() }); syncGate(); try { A && A.ready && A.ready(); } catch (e) {}
+window.__t = { rc: () => readCount, openDict, openDictSearch, dMatch, dVerse, loadDict, openChron, crZoomTo, openPerson, openMap, loadGeo, placesInChapter, loadPeople, openCtx, placeCard, stNavGo: g => { STUDY.g = g; STUDY.sel = []; stRenderBible(); }, G, stStrongPv, openWord, openStudy, closeStudy, stInsert, closeSheet, closePlans, openPlanDetail, openVerse, openWord, requestA11y }; window.__dbg = () => ({ mode, fy: FY.i, n: FY.items.length, pl: PL.i, wl: wheelLock - Date.now() }); syncGate(); try { A && A.ready && A.ready(); } catch (e) {}
 setTimeout(() => loadLex(), 2500);
 })();
 
