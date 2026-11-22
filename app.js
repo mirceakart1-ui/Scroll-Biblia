@@ -1,5 +1,6 @@
 (function () {
 'use strict';
+const APP_VER = '7.4';
 const $ = s => document.querySelector(s);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const A = window.Android || null;
@@ -2079,19 +2080,26 @@ const GM_TERR = { d: ['Deșert', 'Desert'], m: ['Munți', 'Mountains'], p: ['Pod
 const GM_SPEED = { w: [20, 30], c: [10, 20], d: [25, 30], v: [15, 25], s: [90, 200] };
 const GM_SRC = { orbis: ['„Orbis: The Stanford Geospatial Network Model of the Roman World”, Princeton/Stanford Working Papers in Classics', 'Walter Scheidel (model: W. Scheidel, E. Meeks)', '2015', 'academic · model al vitezelor de călătorie în antichitate', 'https://papers.ssrn.com/abstract=2609654'], casson: ['„Speed under Sail of Ancient Ships”, Transactions of the American Philological Association 82, pp. 136–148', 'Lionel Casson', '1951', 'academic · articol de referință', 'https://penelope.uchicago.edu/Thayer/E/Journals/TAPA/82/Speed_under_Sail_of_Ancient_Ships*.html'] };
 function gKm(a, b) { const R0 = 6371, t = Math.PI / 180, dLa = (b[2] - a[2]) * t, dLo = (b[1] - a[1]) * t; const h = Math.sin(dLa / 2) ** 2 + Math.cos(a[2] * t) * Math.cos(b[2] * t) * Math.sin(dLo / 2) ** 2; return 2 * R0 * Math.asin(Math.sqrt(h)); }
-function routeInfoHtml(id) {
+function routeInfoHtml(id, part) {
   const R = GROUTES.find(r => r[0] === id); if (!R) return ''; Object.assign(window.CTX_SRC = window.CTX_SRC || {}, GM_SRC);
   const by = {}; let tot = 0;
-  R[6].forEach((s2, k) => { if (!k) return; const d = gKm(R[6][k - 1], s2); tot += d; by[s2[3]] = (by[s2[3]] || 0) + d; });
+  R[6].forEach((s2, k) => { if (!k || (part && part.indexOf(k) < 0)) return; const d = gKm(R[6][k - 1], s2); tot += d; by[s2[3]] = (by[s2[3]] || 0) + d; });
   let dmin = 0, dmax = 0; Object.keys(by).forEach(m => { dmin += by[m] / GM_SPEED[m][1]; dmax += by[m] / GM_SPEED[m][0]; });
   const km = x => x >= 100 ? (Math.round(x / 10) * 10).toLocaleString('ro-RO') : Math.round(x);
   const days = (a, b) => { a = Math.max(1, Math.round(a)); b = Math.max(a, Math.round(b)); return a === b ? a + L(' zile', ' days') : a + '–' + b + L(' zile', ' days'); };
-  return '<div class="fn-h">📏 ' + esc(R[1]) + '</div><div class="gm-ri"><div class="gm-ri-big"><b>≈ ' + km(tot) + ' km</b><span>' + L('în linie dreaptă între etape', 'straight line between stages') + '</span></div><div class="gm-ri-big"><b>' + days(dmin, dmax) + '</b><span>' + L('timp de mers estimat, fără opriri', 'estimated travel time, no stops') + '</span></div></div>' +
+  return '<div class="fn-h">📏 ' + esc(R[1]) + (part ? L(' · porțiunea de aici', ' · this part') : '') + '</div><div class="gm-ri"><div class="gm-ri-big"><b>≈ ' + km(tot) + ' km</b><span>' + L('în linie dreaptă între etape', 'straight line between stages') + '</span></div><div class="gm-ri-big"><b>' + days(dmin, dmax) + '</b><span>' + L('timp de mers estimat, fără opriri', 'estimated travel time, no stops') + '</span></div></div>' +
     Object.keys(by).map(m => '<div class="gm-ri-row"><span>' + GM_MODE[m][0] + ' ' + L(GM_MODE[m][1], GM_MODE[m][2]) + '</span><b>≈ ' + km(by[m]) + ' km</b><small>' + GM_SPEED[m][0] + '–' + GM_SPEED[m][1] + L(' km/zi → ', ' km/day → ') + days(by[m] / GM_SPEED[m][1], by[m] / GM_SPEED[m][0]) + '</small></div>').join('') +
     (R[8] && R[8].length ? '<div class="fn-h">' + L('Ce spune textul', 'What the text says') + '</div>' + R[8].map(([t, e]) => '<button class="fn-r" data-g="' + pDecG(e) + '"><b>📖 ' + esc(slabel(pDecG(e), stLang())) + '</b><span>' + esc(t) + '</span></button>').join('') : '') +
     '<p class="cs-note">' + L('Distanțele sunt în linie dreaptă, deci drumul real a fost mai lung. Timpul e o estimare (categoria D): pentru mers pe jos și animale după vitezele medii din modelul ORBIS, iar pentru corăbii după Casson (vânt favorabil sau potrivnic). Turmele și familiile mergeau mai încet. Opririle (popasuri, iernat, așteptarea vântului) nu sunt incluse.', 'Straight-line distances; real roads were longer. Times are estimates (category D) based on ORBIS speeds and Casson for ships; stops are not included.') + ' <sup class="cs" data-cs="orbis,casson">*</sup></p>';
 }
-function routesFor(b, c) { return (window.GROUTES || []).filter(r => r[5].some(([bb, c1, c2]) => bb === b && c + 1 >= c1 && c + 1 <= c2)).map(r => r[0]); }
+// traseele apar singure doar unde capitolul (sau versetul) descrie o etapă; se desenează doar porțiunea respectivă
+function routesFor(b, c, enc) {
+  const ck = (b + 1) * 1000 + c + 1, part = {};
+  (window.GROUTES || []).forEach(R => { const ks = []; R[6].forEach((s2, k) => { if (k && [s2[4]].concat(s2[6] || []).some(r => r && (enc ? r === enc : Math.floor(r / 1000) === ck))) ks.push(k); }); if (ks.length) part[R[0]] = ks; });
+  return part;
+}
+const rKs = (R, opt) => (opt.part && opt.part[R[0]]) || R[6].map((_, k) => k).slice(1);
+const rInv = ks => { const o = new Set(); ks.forEach(k => { o.add(k - 1); o.add(k); }); return o; };
 function geoSvg(list, v, opt) {
   opt = opt || {};
   const B = GEOBASE, pts = list.map(([i]) => { const p = GEO[i]; return gXY(p[2], p[3]); });
@@ -2116,12 +2124,13 @@ function geoSvg(list, v, opt) {
   // trasee
   let rt = '';
   (opt.routes || []).forEach(id => { const R = (window.GROUTES || []).find(r => r[0] === id); if (!R) return;
-    const P = R[6].map(s2 => gXY(s2[1], s2[2]));
-    rt += '<path class="gm-rh" data-rinfo="' + id + '" d="' + P.map((p, k) => (k ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join('') + '" stroke-width="' + (W / 40).toFixed(2) + '"/>';
-    rt += '<path class="gm-rt" d="' + P.map((p, k) => (k ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join('') + '" stroke="' + R[2] + '" stroke-dasharray="' + (W / 90).toFixed(2) + ' ' + (W / 130).toFixed(2) + '" stroke-width="' + (W / 380).toFixed(2) + '"/>';
-    R[6].forEach((s2, k) => { const [x, y] = P[k]; rt += '<circle class="gm-rs" cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="' + (W / 240).toFixed(2) + '" fill="' + R[2] + '"/>';
+    const P = R[6].map(s2 => gXY(s2[1], s2[2])), ks = rKs(R, opt), inv = rInv(ks);
+    const dd = ks.map((k, j) => (j && ks[j - 1] === k - 1 ? '' : 'M' + P[k - 1][0].toFixed(1) + ' ' + P[k - 1][1].toFixed(1)) + 'L' + P[k][0].toFixed(1) + ' ' + P[k][1].toFixed(1)).join('');
+    rt += '<path class="gm-rh" data-rinfo="' + id + '" d="' + dd + '" stroke-width="' + (W / 40).toFixed(2) + '"/>';
+    rt += '<path class="gm-rt" d="' + dd + '" stroke="' + R[2] + '" stroke-dasharray="' + (W / 90).toFixed(2) + ' ' + (W / 130).toFixed(2) + '" stroke-width="' + (W / 380).toFixed(2) + '"/>';
+    R[6].forEach((s2, k) => { if (!inv.has(k)) return; const [x, y] = P[k]; rt += '<circle class="gm-rs" cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="' + (W / 240).toFixed(2) + '" fill="' + R[2] + '"/>';
       if (inV(P[k]) && free(x + fs * .3, y)) { used.push([x + fs * .3 + fs * 2, y]); lab += '<text class="gm-l gm-rl2" stroke-width="' + sw + '" x="' + (x + fs * .35).toFixed(1) + '" y="' + (y - fs * .25).toFixed(1) + '" font-size="' + (fs * .75).toFixed(2) + '">' + esc(pShort(s2[0])) + '</text>'; }
-      if (k && s2[3]) { const [ax, ay] = P[k - 1]; const mx = (ax + x) / 2, my = (ay + y) / 2; if (inV([mx, my]) && Math.hypot(x - ax, y - ay) > fs * 1.2) rt += '<text class="gm-mo' + (s2[5] ? '' : ' pr') + '" x="' + mx.toFixed(1) + '" y="' + (my + fs * .3).toFixed(1) + '" font-size="' + (fs * .9).toFixed(2) + '">' + GM_MODE[s2[3]][0] + '</text>'; } });
+      if (k && s2[3] && ks.indexOf(k) >= 0) { const [ax, ay] = P[k - 1]; const mx = (ax + x) / 2, my = (ay + y) / 2; if (inV([mx, my]) && Math.hypot(x - ax, y - ay) > fs * 1.2) rt += '<text class="gm-mo' + (s2[5] ? '' : ' pr') + '" x="' + mx.toFixed(1) + '" y="' + (my + fs * .3).toFixed(1) + '" font-size="' + (fs * .9).toFixed(2) + '">' + GM_MODE[s2[3]][0] + '</text>'; } });
   });
   return '<svg class="gm" viewBox="' + [x0, y0, W, y1 - y0].map(v => v.toFixed(1)).join(' ') + '" preserveAspectRatio="xMidYMid slice"><rect x="-9999" y="-9999" width="29999" height="29999" class="gm-sea"/><path class="gm-land" d="' + B.land + '"/>' + ter + '<path class="gm-lake" d="' + B.lake + '"/><path class="gm-riv" d="' + B.riv + '"/>' + tl + rt + rl + mk + lab + '</svg>';
 }
@@ -2131,14 +2140,16 @@ function openMap(list, title, chap) {
     return '<div class="gm-it" data-gi="' + i + '"><div class="gm-ih"><span class="gm-no">' + (k + 1) + '</span><b>' + esc(p[0]) + '</b>' + (p[0] !== p[1] ? '<small> · ' + esc(p[1]) + '</small>' : '') + '<span class="gm-cf ' + cc + '">' + cf + '</span></div>' +
       '<div class="gm-md">' + esc(p[4]) + (p[6] && p[6] !== p[1] && !/^another name/.test(p[6]) ? ' · ' + L('azi: ', 'today: ') + esc(p[6]) : '') + (p[7] ? ' · ' + L('există și alte identificări', 'other identifications exist') : '') + '</div>' +
       '<div class="cs-vs">' + vs.slice(0, 12).map(n => pRefBtn(n, l)).join('') + (p[9] ? '<a href="https://www.openbible.info/geo/ancient/' + p[9] + '" data-url>OpenBible ↗</a>' : '') + '</div></div>'; };
-  const opt = { terr: !!S.mapTerr, routes: chap ? routesFor(chap[0], chap[1]) : [] };
-  const rPts = () => opt.routes.flatMap(id => { const R = GROUTES.find(r => r[0] === id); return R ? R[6].map(s2 => gXY(s2[1], s2[2])) : []; });
+  const auto = chap ? routesFor(chap[0], chap[1], chap[2]) : {};
+  const opt = { terr: !!S.mapTerr, routes: Object.keys(auto), part: Object.assign({}, auto) };
+  const rPts = () => opt.routes.flatMap(id => { const R = GROUTES.find(r => r[0] === id); if (!R) return []; const inv = rInv(rKs(R, opt)); return R[6].filter((_, k) => inv.has(k)).map(s2 => gXY(s2[1], s2[2])); });
   let view = geoView(list, 'c', rPts());
   const legend = () => (opt.terr ? '<div class="gm-lg">' + Object.keys(GM_TERR).map(k => '<span><i class="gt-' + k + '"></i>' + L(GM_TERR[k][0], GM_TERR[k][1]) + '</span>').join('') + '</div>' : '') +
     (opt.routes.length ? '<div class="gm-lg">' + Object.keys(GM_MODE).map(k => '<span>' + GM_MODE[k][0] + ' ' + L(GM_MODE[k][1], GM_MODE[k][2]) + '</span>').join('') + '<span class="pr">' + L('estompat = presupus, nu scris în text', 'faded = presumed, not stated') + '</span></div>' : '');
   const rCards = () => opt.routes.map(id => { const R = GROUTES.find(r => r[0] === id); if (!R) return ''; const [cf] = [R[3]];
     return '<div class="gm-rc" style="border-color:' + R[2] + '"><div class="gm-ih"><b>' + esc(R[1]) + '</b><span class="cr-cat c' + R[3] + '"><i>' + R[3] + '</i>' + ({ B: L('etape din textul biblic', 'stages from the text'), D: L('drum presupus', 'presumed route'), E: L('traseu disputat', 'disputed route') }[R[3]] || '') + '</span></div><p class="cs-note">' + esc(R[4]) + (R[7].length ? ' <sup class="cs" data-cs="' + R[7].join(',') + '">*</sup>' : '') + '</p><div class="gm-steps">' +
-      R[6].map((s2, k) => (k ? '<span class="gm-st-m' + (s2[5] ? '' : ' pr') + '" title="' + esc(L(GM_MODE[s2[3]][1], GM_MODE[s2[3]][2]) + (s2[5] ? L(' (scris în text)', ' (stated)') : L(' (presupus)', ' (presumed)'))) + '">' + GM_MODE[s2[3]][0] + '</span>' : '') + (s2[4] ? '<button class="cs-v gm-st" data-g="' + pDecG(s2[4]) + '">' + esc(pShort(s2[0])) + '</button>' : '<span class="gm-st">' + esc(pShort(s2[0])) + '</span>')).join('') + '</div><button class="gm-rinfo" data-rinfo="' + R[0] + '">📏 ' + L('Distanță și timp', 'Distance & time') + '</button></div>'; }).join('');
+      (opt.part[R[0]] ? '<p class="gm-part">' + L('Pe hartă e doar porțiunea din acest ' + (chap && chap[2] ? 'verset' : 'capitol') + '.', 'Only the part from this ' + (chap && chap[2] ? 'verse' : 'chapter') + ' is drawn.') + '</p>' : '') +
+      R[6].map((s2, k) => (k ? '<span class="gm-st-m' + (s2[5] ? '' : ' pr') + '" title="' + esc(L(GM_MODE[s2[3]][1], GM_MODE[s2[3]][2]) + (s2[5] ? L(' (scris în text)', ' (stated)') : L(' (presupus)', ' (presumed)'))) + '">' + GM_MODE[s2[3]][0] + '</span>' : '') + (s2[4] ? '<button class="cs-v gm-st' + (opt.part[R[0]] && rInv(opt.part[R[0]]).has(k) ? ' cur' : '') + '" data-g="' + pDecG(s2[4]) + '">' + esc(pShort(s2[0])) + '</button>' : '<span class="gm-st">' + esc(pShort(s2[0])) + '</span>')).join('') + '</div><button class="gm-rinfo" data-rinfo="' + R[0] + '">📏 ' + L('Distanță și timp', 'Distance & time') + '</button>' + (auto[R[0]] ? '<button class="gm-rinfo gm-rfull" data-rfull="' + R[0] + '">' + (opt.part[R[0]] ? '〰 ' + L('Arată tot traseul', 'Show the whole route') : '〰 ' + L('Doar porțiunea de aici', 'Only this part')) + '</button>' : '') + '</div>'; }).join('');
   const html = '<div class="gm-z"><button data-gz="c" class="on">' + L('Aproape', 'Close') + '</button><button data-gz="r">' + L('Regiune', 'Region') + '</button><button data-gz="w">' + L('Toată harta', 'Whole map') + '</button></div>' +
     '<div class="gm-z gm-z2"><button data-gt="1" class="' + (opt.terr ? 'on' : '') + '">⛰ ' + L('Teren', 'Terrain') + '</button><button data-grs="1" class="' + (opt.routes.length ? 'on' : '') + '">〰 ' + L('Trasee', 'Routes') + (opt.routes.length ? ' · ' + opt.routes.length : '') + '</button></div>' +
     '<div class="gm-wrap"><div class="gm-box">' + geoSvg(list, view, opt) + '</div><div class="gm-zb"><button data-gzi="1" aria-label="Zoom +">+</button><button data-gzi="-1" aria-label="Zoom −">−</button></div></div><div class="gm-leg">' + legend() + '</div><div class="gm-rcs">' + rCards() + '</div>' +
@@ -2168,11 +2179,12 @@ function openMap(list, title, chap) {
     ov.querySelector('.ctx-bd').addEventListener('click', e => {
       const z = e.target.closest('[data-gz]'); if (z) { ov.querySelectorAll('[data-gz]').forEach(b => b.classList.toggle('on', b === z)); view = geoView(list, z.dataset.gz, rPts()); redraw(); hap(0); return; }
       if (e.target.closest('[data-gt]')) { opt.terr = !opt.terr; S.mapTerr = opt.terr; persist(); redraw(); refreshUI(); hap(0); return; }
-      const rsb = e.target.closest('[data-grs]'); if (rsb) { fnPop(rsb, '<div class="fn-h">' + L('Trasee biblice', 'Biblical routes') + '</div>' + GROUTES.map(R => '<button class="fn-r gm-rch' + (opt.routes.indexOf(R[0]) >= 0 ? ' on' : '') + '" data-rid="' + R[0] + '"><b><i style="background:' + R[2] + '"></i>' + esc(R[1]) + '</b><span>' + (opt.routes.indexOf(R[0]) >= 0 ? '✓ ' + L('afișat', 'shown') : L('atinge ca să afișezi', 'tap to show')) + '</span></button>').join(''), pop => pop.querySelectorAll('[data-rid]').forEach(b => b.onclick = () => { const id = b.dataset.rid, k = opt.routes.indexOf(id); if (k >= 0) opt.routes.splice(k, 1); else { opt.routes.push(id); view = geoView(list, 'c', rPts()); } pop.remove(); redraw(); refreshUI(); hap(0); })); return; }
+      const rsb = e.target.closest('[data-grs]'); if (rsb) { fnPop(rsb, '<div class="fn-h">' + L('Trasee biblice', 'Biblical routes') + '</div>' + GROUTES.map(R => '<button class="fn-r gm-rch' + (opt.routes.indexOf(R[0]) >= 0 ? ' on' : '') + '" data-rid="' + R[0] + '"><b><i style="background:' + R[2] + '"></i>' + esc(R[1]) + '</b><span>' + (opt.routes.indexOf(R[0]) >= 0 ? '✓ ' + L('afișat', 'shown') : L('atinge ca să afișezi', 'tap to show')) + '</span></button>').join(''), pop => pop.querySelectorAll('[data-rid]').forEach(b => b.onclick = () => { const id = b.dataset.rid, k = opt.routes.indexOf(id); if (k >= 0) { opt.routes.splice(k, 1); delete opt.part[id]; } else { opt.routes.push(id); delete opt.part[id]; view = geoView(list, 'c', rPts()); } pop.remove(); redraw(); refreshUI(); hap(0); })); return; }
       const csx = e.target.closest('.cs'); if (csx && csx.closest('.gm-rc')) { e.stopPropagation(); loadChron(() => fnPop(csx, '<div class="fn-h">' + L('Surse', 'Sources') + '</div>' + csx.dataset.cs.split(',').map(srcCard).join(''), bindUrls)); return; }
       const zi = e.target.closest('[data-gzi]'); if (zi) { zoom(+zi.dataset.gzi > 0 ? 1 / 1.6 : 1.6, .5, .5); redraw(); hap(0); return; }
       if (moved && box.contains(e.target)) { moved = false; return; } moved = false;
-      const ri = e.target.closest('[data-rinfo]'); if (ri) { e.stopPropagation(); fnPop(ri, routeInfoHtml(ri.dataset.rinfo), pop => { bindUrls(pop); pop.addEventListener('click', ev => { const c = ev.target.closest('.cs'); if (c) { ev.stopPropagation(); fnPop(c, '<div class="fn-h">' + L('Surse', 'Sources') + '</div>' + c.dataset.cs.split(',').map(srcCard).join(''), bindUrls); return; } const r2 = ev.target.closest('.fn-r[data-g]'); if (r2) { pop.remove(); ov.remove(); crVerse(+r2.dataset.g); } }); }); return; }
+      const rf = e.target.closest('[data-rfull]'); if (rf) { const id = rf.dataset.rfull; if (opt.part[id]) delete opt.part[id]; else opt.part[id] = auto[id]; view = geoView(list, 'c', rPts()); redraw(); refreshUI(); hap(0); return; }
+      const ri = e.target.closest('[data-rinfo]'); if (ri) { e.stopPropagation(); fnPop(ri, routeInfoHtml(ri.dataset.rinfo, opt.part[ri.dataset.rinfo]), pop => { bindUrls(pop); pop.addEventListener('click', ev => { const c = ev.target.closest('.cs'); if (c) { ev.stopPropagation(); fnPop(c, '<div class="fn-h">' + L('Surse', 'Sources') + '</div>' + c.dataset.cs.split(',').map(srcCard).join(''), bindUrls); return; } const r2 = ev.target.closest('.fn-r[data-g]'); if (r2) { pop.remove(); ov.remove(); crVerse(+r2.dataset.g); } }); }); return; }
       const v = e.target.closest('.cs-v'); if (v) { e.stopPropagation(); const g = +v.dataset.g; ov.remove(); if (document.getElementById('study')) stPreview(g, 0); else openVerse(g, true); return; }
       const m = e.target.closest('.gm-m'); if (m) { const gi = m.dataset.gi; hl(gi); const it = ov.querySelector('.gm-it[data-gi="' + gi + '"]'); if (it) it.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); return; }
       const it = e.target.closest('.gm-it'); if (it && !e.target.closest('a')) { hl(it.dataset.gi); box.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
@@ -2407,7 +2419,7 @@ function stRenderBible() {
     const pm = e.target.closest('.pp-mini[data-p]'); if (pm) { e.stopPropagation(); openPerson(+pm.dataset.p); return; }
     const ac = e.target.closest('[data-va]'); if (ac) {
       e.stopPropagation(); const g = +ac.dataset.g, k = ac.dataset.va, bar = ac.closest('.sva'); hap(0);
-      if (k === 'w') stWords(g, bar); else if (k === 'x') stXrefs(g, bar); else if (k === 'p') stPeople(g, bar); else if (k === 'm') { const rv = ref(g); openMap(placesInVerse(g), L('Locuri · ', 'Places · ') + label(g, l), [rv.b, rv.c]); }
+      if (k === 'w') stWords(g, bar); else if (k === 'x') stXrefs(g, bar); else if (k === 'p') stPeople(g, bar); else if (k === 'm') { const rv = ref(g); openMap(placesInVerse(g), L('Locuri · ', 'Places · ') + label(g, l), [rv.b, rv.c, pEncG(g)]); }
       else { stInsert({ type: 'v', gs: STUDY.sel.includes(g) && STUDY.sel.length > 1 ? STUDY.sel.slice() : [g] }); STUDY.sel = []; stMarkSel(); stShowBar(null); }
       return;
     }
@@ -2944,6 +2956,7 @@ window.addEventListener('resize', () => { if (STUDY.open) { $('#study').classNam
 updateTopicTab(); setMode('read'); window.__ready = true; try { stAutoStart(); } catch (e) {}
 if (WEB && 'serviceWorker' in navigator && location.protocol === 'https:') { try { navigator.serviceWorker.register('sw.js').catch(() => {}); } catch (e) {} }
 if (WEB && IOS && !STANDALONE && !S.instHint) { S.instHint = 1; persist(); setTimeout(() => toast(UI_EN ? 'Tip: ☰ → Install on iPhone' : 'Sfat: ☰ → Instalează pe iPhone'), 2500); }
+try { const wm = document.createElement('div'); wm.id = 'verWm'; wm.textContent = 'V' + APP_VER; document.body.appendChild(wm); } catch (e) {}
 window.__t = { rc: () => readCount, openChron, crZoomTo, openPerson, openMap, loadGeo, placesInChapter, loadPeople, openCtx, placeCard, stNavGo: g => { STUDY.g = g; STUDY.sel = []; stRenderBible(); }, G, stStrongPv, openWord, openStudy, closeStudy, stInsert, closeSheet, closePlans, openPlanDetail, openVerse, openWord, requestA11y }; window.__dbg = () => ({ mode, fy: FY.i, n: FY.items.length, pl: PL.i, wl: wheelLock - Date.now() }); syncGate(); try { A && A.ready && A.ready(); } catch (e) {}
 setTimeout(() => loadLex(), 2500);
 })();
