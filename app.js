@@ -2171,7 +2171,9 @@ function crRender() {
         const cls = 'cr-i t' + it[4] + ' c' + it[6] + (it[5] === 'J' ? ' kJ' : it[5] === 'I' ? ' kI' : '') + (it[10] ? ' ca' : '') + (CR.sel === i ? ' on' : '');
         return '<button class="' + cls + '" data-ci="' + i + '" style="top:' + (22 + ln * 26) + 'px;left:' + (ev ? x0 - 6 : x0).toFixed(1) + 'px;' + (ev ? '' : 'width:' + (x1 - x0).toFixed(1) + 'px') + '">' + (ev ? '<i class="cr-dot"></i>' : '') + '<span class="' + (inside ? 'in' : 'out') + '" title="' + esc(it[0]) + '">' + esc(it[0]) + '</span></button>'; }).join('') + '</div>';
   });
-  box.style.width = W + 'px'; box.innerHTML = h;
+  let gl = '';
+  for (let y = Math.ceil(Y0 / st) * st; y <= Y1; y += st) gl += '<i class="' + (CR.mode === 'm' && y === 0 ? 'z' : (y / st) % 2 ? 'm' : '') + '" style="left:' + crX(y).toFixed(1) + 'px"></i>';
+  box.style.width = W + 'px'; box.innerHTML = '<div class="cr-grid">' + gl + '</div>' + h;
   const legend = $('#crLeg'); if (legend) legend.innerHTML = Object.keys(CR_CAT).map(k => '<span class="cr-lg c' + k + '"><i></i>' + k + ' ' + L(CR_CAT[k][0], CR_CAT[k][1]) + '</span>').join('');
 }
 function crZoomTo(ns, cx) {
