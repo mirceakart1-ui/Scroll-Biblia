@@ -1,6 +1,6 @@
 (function () {
 'use strict';
-const APP_VER = '8.3';
+const APP_VER = '8.4';
 const $ = s => document.querySelector(s);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const A = window.Android || null;
@@ -638,7 +638,7 @@ const slots = [-1, 0, 1].map(() => { const el = document.createElement('div'); e
 const TABF = () => Math.min(innerWidth, innerHeight) >= 600 ? 1.4 : 1;
 function fontFor(len) { const base = len < 70 ? 25 : len < 130 ? 22 : len < 200 ? 19.5 : len < 280 ? 18 : 16.5; return Math.round(base * S.fs * TABF()) + 'px'; }
 function fillCard(el, it) {
-  const key = it ? (S.topic || '') + (NARR.on ? 'N' : '') + (TTS.on ? 'T' : '') + mode + (it.pix != null ? 'p' + it.pix : '') + it.g + S.lang + curVer('ro') + curVer('en') + JSON.stringify(S.onv || {}) + S.fs + TABF() + (it.votd ? 'v' : '') + (S.liked[it.g] ? 'L' : '') + (S.saved[it.g] ? 'S' : '') : 'none';
+  const key = it ? (S.topic || '') + (NARR.on ? 'N' : '') + (TTS.on ? 'T' : '') + mode + (it.pix != null ? 'p' + it.pix : '') + it.g + S.lang + curVer('ro') + curVer('en') + S.fs + TABF() + (it.votd ? 'v' : '') + (S.liked[it.g] ? 'L' : '') + (S.saved[it.g] ? 'S' : '') : 'none';
   if (el._key === key) return; el._key = key;
   if (!it) { el.querySelector('.content').innerHTML = ''; el.querySelector('.actions').innerHTML = ''; el.style.visibility = 'hidden'; return; }
   el.style.visibility = '';
@@ -653,7 +653,7 @@ function fillCard(el, it) {
   if (it.pday != null) { const pd = planData(S.plan); const start = pd.dayStart[it.pday] === it.pix; h += '<div class="badge plan st-' + dayStatus(S.plan, it.pday) + '">' + (start ? T('▶ Începe ') : '') + T('Ziua ') + (it.pday + 1) + T(' din ') + pd.days.length + '</div>'; }
   h += '<p class="verse" style="font-size:' + fontFor(t1.length + (S.lang === 'both' ? 60 : 0)) + '">' + rich(g, main) + '</p>';
   if (S.lang === 'both') h += '<p class="verse2" style="font-size:' + Math.round(16 * S.fs * TABF()) + 'px">' + rich(g, 'en') + '</p>';
-  h += '<div class="ref">' + esc(label(g, main)) + ' <small class="vab">' + verAbbr(main, g) + '</small>' + onvLinks(g) + (S.lang === 'both' ? ' · ' + esc(label(g, 'en')) + ' <small class="vab">' + verAbbr('en', g) + '</small>' : '') + '</div>';
+  h += '<div class="ref">' + esc(label(g, main)) + ' <small class="vab">' + verAbbr(main, g) + '</small>' + (S.lang === 'both' ? ' · ' + esc(label(g, 'en')) + ' <small class="vab">' + verAbbr('en', g) + '</small>' : '') + '</div>';
   if (mode === 'read' || mode === T('plan')) { const r = ref(g); h += T('<div class="pos">Versetul ') + (r.v + 1) + T(' din ') + VC[r.b][r.c] + '</div>'; }
   const xs = xrefs(g);
   if (xs.length) h += '<div class="chips">' + xs.slice(0, 3).map(x => '<button class="chip" data-x="' + x.g + '">' + esc(xlabel(x, main)) + '</button>').join('') + (xs.length > 3 ? '<button class="chip more" data-v="' + g + '">+' + (xs.length - 3) + T(' trimiteri</button>') : '') + '</div>';
@@ -1208,7 +1208,6 @@ function openVerse(g, push, focus, tapped) {
   if (S.lang === 'both' || l === 'ro') h += '<p class="vt2">' + rich(g, 'en') + '</p>';
   h += '</div>';
   h += '<button class="btn" data-go="' + g + '">' + I.book + T(' Citește de aici</button><button class="btn ghost" data-chap="') + g + T('">Capitolul</button><button class="btn ghost" data-sv="') + g + '">' + (S.saved[g] ? T('Salvat ✓') : T('Salvează')) + '</button><button class="btn ghost" data-nt="' + g + '">' + I.pen + ' ' + L('În notițe', 'To notes') + '</button>';
-  if (onvBtns(g)) h += '<div class="chips">' + onvBtns(g) + '</div>';
   const xs = xrefs(g);
   h += T('<div class="sec" id="xr">Trimiteri (') + xs.length + ')</div>';
   h += xs.length ? '<div class="chips big">' + xs.map(x => '<button class="chip" data-x="' + x.g + '">' + esc(xlabel(x, l)) + '</button>').join('') + '</div>' : T('<div class="hint">Nu există trimiteri pentru acest verset.</div>');
@@ -1535,9 +1534,7 @@ function onvBtns(g) { const o = S.onv || {}; return ['ro', 'en'].filter(l => o[l
 function openOnv(k, g) { const u = onvUrl(k, g); if (!u) return; try { A && A.openUrl ? A.openUrl(u) : window.open(u, '_blank'); } catch (e) {} }
 function openVersions() {
   const grp = l => '<div class="sec">' + (l === 'ro' ? '🇷🇴 ' + L('Română', 'Romanian') : '🇬🇧 English') + '</div>' + VERS[l].map(([k, n, a, d]) => '<button class="mitem vchk' + (curVer(l) === k ? ' on' : '') + '" data-vl="' + l + '" data-vk="' + k + '"><b>' + (curVer(l) === k ? '✓ ' : '') + esc(n) + ' <small>' + a + '</small></b><small>' + esc(d) + '</small></button>').join('');
-  const og = l => ONV[l].map(([k, a, n, d]) => '<button class="mitem vchk' + ((S.onv || {})[l] === k ? ' on' : '') + '" data-ol="' + l + '" data-ok="' + k + '"><b>' + ((S.onv || {})[l] === k ? '✓ ' : '') + esc(n) + ' <small>' + a + ' ↗</small></b><small>' + esc(d) + '</small></button>').join('');
-  openSheet(L('Traducerea Bibliei', 'Bible translation'), grp('ro') + grp('en') + '<div class="sec">' + L('Online · cu drepturi de autor', 'Online · copyrighted') + '</div><p class="hint">' + L('Nu pot fi incluse în aplicație. Bifează una și lângă trimitere (ex. Geneza 1:1 – NTR ↗) apare un link care deschide versetul în YouVersion (NTR, EDCR) sau Bible Gateway (NIV, NKJV, ESV, NASB). Necesită internet.', 'Cannot be bundled; a button opens the verse online.') + '</p>' + og('ro') + og('en') + '<p class="hint">' + L('Atingerea cuvintelor, dicționarul și cuvintele originale folosesc în continuare Cornilescu și KJV (cu numere Strong) în fundal. Unde o traducere nu are un verset (ex. LSB în Vechiul Testament), se arată Cornilescu sau KJV.', 'Word taps, dictionary and original words still use Cornilescu and KJV (Strong) in the background.') + '</p><p class="hint">' + L('NTR, EDCR, NIV, NKJV, ESV și NASB au drepturi de autor; textul lor nu poate fi pus în aplicație, dar se deschide online de mai sus.', 'NTR is copyrighted (Biblica).') + '</p>', body => {
-    body.querySelectorAll('[data-ok]').forEach(b => b.onclick = () => { const l = b.dataset.ol, k = b.dataset.ok; S.onv = Object.assign({}, S.onv || {}, { [l]: (S.onv || {})[l] === k ? null : k }); persist(); refresh(); closeSheet(); toast(S.onv[l] ? ONV[l].find(x => x[0] === k)[1] + ' ↗ ' + L('apare lângă trimiterea versetului', 'shown next to the reference') : L('Oprit', 'Off')); });
+  openSheet(L('Traducerea Bibliei', 'Bible translation'), grp('ro') + grp('en') + '<p class="hint">' + L('Atingerea cuvintelor, dicționarul și cuvintele originale folosesc în continuare Cornilescu și KJV (cu numere Strong) în fundal. Unde o traducere nu are un verset (ex. LSB în Vechiul Testament), se arată Cornilescu sau KJV.', 'Word taps, dictionary and original words still use Cornilescu and KJV (Strong) in the background.') + '</p><p class="hint">' + L('Sunt incluse doar traducerile care pot fi folosite liber, offline. NTR, EDCR, NIV, NKJV, ESV, NASB și Biblia Ortodoxă au drepturi de autor.', 'NTR is copyrighted (Biblica).') + '</p>', body => {
     body.querySelectorAll('[data-vk]').forEach(b => b.onclick = () => { const l = b.dataset.vl, k = b.dataset.vk; loadVer(k, () => { S.ver = Object.assign({}, S.ver || {}, { [l]: k }); if (S.lang !== 'both' && S.lang !== l) S.lang = l; persist(); refresh(); closeSheet(); toast((l === 'ro' ? '🇷🇴 ' : '🇬🇧 ') + VERS[l].find(x => x[0] === k)[1]); }); });
   }, sheetOpen());
 }
@@ -3199,6 +3196,7 @@ updateTopicTab(); setMode('read'); window.__ready = true; try { stAutoStart(); }
 if (WEB && 'serviceWorker' in navigator && location.protocol === 'https:') { try { navigator.serviceWorker.register('sw.js').catch(() => {}); } catch (e) {} }
 if (WEB && IOS && !STANDALONE && !S.instHint) { S.instHint = 1; persist(); setTimeout(() => toast(UI_EN ? 'Tip: ☰ → Install on iPhone' : 'Sfat: ☰ → Instalează pe iPhone'), 2500); }
 try { const wm = document.createElement('div'); wm.id = 'verWm'; wm.textContent = 'V' + APP_VER; document.body.appendChild(wm); } catch (e) {}
+if (S.onv) { delete S.onv; persist(); }
 ['ro', 'en'].forEach(l => { const v = (S.ver || {})[l]; if (v && VVAR[v]) loadVer(v, () => refresh()); });
 window.__t = { rc: () => readCount, openVersions, curVer, alignRo, loadAlign, openNave, openGodNames, loadNave, openDict, openDictSearch, dMatch, dVerse, loadDict, openChron, crZoomTo, openPerson, openMap, loadGeo, placesInChapter, loadPeople, openCtx, placeCard, stNavGo: g => { STUDY.g = g; STUDY.sel = []; stRenderBible(); }, G, stStrongPv, openWord, openStudy, closeStudy, stInsert, closeSheet, closePlans, openPlanDetail, openVerse, openWord, requestA11y }; window.__dbg = () => ({ mode, fy: FY.i, n: FY.items.length, pl: PL.i, wl: wheelLock - Date.now() }); syncGate(); try { A && A.ready && A.ready(); } catch (e) {}
 setTimeout(() => loadLex(), 2500);
