@@ -1,6 +1,6 @@
 (function () {
 'use strict';
-const APP_VER = '7.7';
+const APP_VER = '7.8';
 const $ = s => document.querySelector(s);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const A = window.Android || null;
@@ -1742,7 +1742,7 @@ function showVotd() {
 $('#btnMenu').innerHTML = I.menu; $('#btnSearch').innerHTML = I.search;
 $('#btnMenu').onclick = openMenu;
 (() => { if (!matchMedia('(hover:hover) and (pointer:fine)').matches) return; const R = document.documentElement; let t = null;
-  const hideLater = () => { clearTimeout(t); t = setTimeout(() => { if (!$('#top').matches(':hover')) R.classList.add('mhide'); }, 1500); };
+  const hideLater = () => { clearTimeout(t); t = setTimeout(() => { if (!document.querySelector('#top:hover, #chron .cr-top:hover, #chron .cr-bar:hover, #crQ:focus') && !document.querySelector('#crRes:not(.hidden)')) R.classList.add('mhide'); }, 1500); };
   document.addEventListener('mousemove', e => { if (e.clientY < 90) { clearTimeout(t); R.classList.remove('mhide'); } else if (!R.classList.contains('mhide')) hideLater(); }, { passive: true });
   document.addEventListener('mouseleave', hideLater); hideLater();
 })();

@@ -978,3 +978,4 @@ html.day .gm-tl{fill:rgba(90,70,40,.8);stroke:rgba(255,255,255,.7)}
 html.day #verWm{color:#1f1d26}
 .gm-more{margin-top:6px;opacity:.85}
 @media (hover:hover) and (pointer:fine){#top{transition:opacity .5s ease,transform .35s ease}html.mhide #top{transform:translateY(-110%)}}
+@media (hover:hover) and (pointer:fine){#chron .cr-top,#chron .cr-bar{max-height:90px;transition:max-height .35s ease,padding .35s ease,opacity .3s ease}html.mhide #chron .cr-top,html.mhide #chron .cr-bar{max-height:0;padding-top:0;padding-bottom:0;opacity:0;overflow:hidden}}
