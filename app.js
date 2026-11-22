@@ -2134,9 +2134,10 @@ function loadChron(cb) {
 const CR = { mode: 'm', late: false, sc: 1.2, sel: null };
 const BOOKY = [-2000, -1446, -1445, -1430, -1406, -1400, -1200, -1100, -1050, -1000, -950, -800, -1000, -850, -458, -445, -479, -1900, -1000, -950, -950, -950, -720, -600, -586, -590, -560, -750, -800, -760, -586, -780, -720, -650, -605, -630, -520, -520, -430, 28, 28, 28, 28, 45, 57, 55, 56, 49, 61, 61, 61, 51, 51, 63, 66, 63, 61, 66, 48, 64, 66, 90, 90, 90, 70, 95];
 function crAdj(y) { if (!CR.late || CR.mode !== 'm') return y; if (y < -1446) return y + 186; if (y < -1050) return -1260 + (y + 1446) * (210 / 396); return y; }
+function crA(it, y) { return it[5] === 'W' ? y : crAdj(y); }
 function crYear(y) { if (CR.mode === 'g') return L('anul ', 'year ') + Math.round(y) + L(' al lumii', ' AM'); y = Math.round(y); return y < 0 ? -y + L(' î.Hr.', ' BC') : y + L(' d.Hr.', ' AD'); }
 function crItems() { return CR.mode === 'g' ? CHRON.gi : CHRON.it; }
-const CR_G = { E: ['Evenimente', 'Events'], P: ['Patriarhi, conducători, judecători', 'Patriarchs, leaders, judges'], U: ['Regatul unit', 'United kingdom'], J: ['Împărații lui Iuda', 'Kings of Judah'], I: ['Împărații lui Israel', 'Kings of Israel'], R: ['Prooroci', 'Prophets'], X: ['Imperii și conducători străini', 'Empires and foreign rulers'], N: ['Noul Testament', 'New Testament'] };
+const CR_G = { E: ['Evenimente biblice', 'Biblical events'], W: ['Istoria lumii · în același timp', 'World history · at the same time'], P: ['Patriarhi, conducători, judecători', 'Patriarchs, leaders, judges'], U: ['Regatul unit', 'United kingdom'], J: ['Împărații lui Iuda', 'Kings of Judah'], I: ['Împărații lui Israel', 'Kings of Israel'], R: ['Prooroci', 'Prophets'], X: ['Imperii și conducători străini', 'Empires and foreign rulers'], N: ['Noul Testament', 'New Testament'] };
 const CR_CAT = { A: ['confirmat de surse externe', 'confirmed by outside sources'], B: ['calculat din textul biblic', 'calculated from the biblical text'], C: ['reconstrucție academică', 'scholarly reconstruction'], D: ['aproximare / ipoteză', 'approximation / hypothesis'], E: ['disputat / necunoscut', 'disputed / unknown'] };
 function crRange() { return CR.mode === 'g' ? [-60, 2230] : [-2250, 120]; }
 function crX(y) { return 120 + (y - crRange()[0]) * CR.sc; }
@@ -2152,13 +2153,13 @@ function crRender() {
   if (CR.mode === 'm') a += '<i class="cr-bcad" style="left:' + crX(0).toFixed(1) + 'px">' + L('î.Hr. | d.Hr.', 'BC | AD') + '</i>';
   ax.style.width = W + 'px'; ax.innerHTML = a;
   // groups
-  const its = crItems(), order = CR.mode === 'g' ? ['E', 'P'] : ['E', 'P', 'U', 'J', 'I', 'R', 'X', 'N'];
+  const its = crItems(), order = CR.mode === 'g' ? ['E', 'P'] : ['E', 'W', 'P', 'U', 'J', 'I', 'R', 'X', 'N'];
   let h = '';
   order.forEach(gk => {
     const lanes = [], els = [];
     its.forEach((it, i) => {
       if (it[5] !== gk) return;
-      const s = crAdj(it[2]), e = crAdj(it[3]), x0 = crX(s), x1 = Math.max(crX(e), x0 + (it[4] === 'e' ? 0 : 5));
+      const s = crA(it, it[2]), e = crA(it, it[3]), x0 = crX(s), x1 = Math.max(crX(e), x0 + (it[4] === 'e' ? 0 : 5));
       const lw = Math.min(176, it[0].length * 6.6 + 14), ev = it[4] === 'e';
       const inside = !ev && x1 - x0 > lw;
       const end = (inside ? x1 : x1 + lw) + 6;
@@ -2168,7 +2169,7 @@ function crRender() {
     if (!els.length) return;
     h += '<div class="cr-g" style="height:' + (lanes.length * 26 + 26) + 'px;width:' + W + 'px"><div class="cr-gh">' + L(CR_G[gk][0], CR_G[gk][1]) + '</div>' +
       els.map(([i, x0, x1, ln, inside, ev]) => { const it = its[i];
-        const cls = 'cr-i t' + it[4] + ' c' + it[6] + (it[5] === 'J' ? ' kJ' : it[5] === 'I' ? ' kI' : '') + (it[10] ? ' ca' : '') + (CR.sel === i ? ' on' : '');
+        const cls = 'cr-i t' + it[4] + ' c' + it[6] + (it[5] === 'J' ? ' kJ' : it[5] === 'I' ? ' kI' : it[5] === 'W' ? ' kW' : '') + (it[10] ? ' ca' : '') + (CR.sel === i ? ' on' : '');
         return '<button class="' + cls + '" data-ci="' + i + '" style="top:' + (22 + ln * 26) + 'px;left:' + (ev ? x0 - 6 : x0).toFixed(1) + 'px;' + (ev ? '' : 'width:' + (x1 - x0).toFixed(1) + 'px') + '">' + (ev ? '<i class="cr-dot"></i>' : '') + '<span class="' + (inside ? 'in' : 'out') + '" title="' + esc(it[0]) + '">' + esc(it[0]) + '</span></button>'; }).join('') + '</div>';
   });
   let gl = '';
@@ -2185,10 +2186,10 @@ function crZoomTo(ns, cx) {
 function crSync() { const sc = $('#crSc'), ax = $('#crAxIn'); if (sc && ax) ax.style.transform = 'translateX(' + (-sc.scrollLeft) + 'px)'; }
 function crGoYear(y, flash) { const sc = $('#crSc'); if (!sc) return; sc.scrollTo({ left: crX(crAdj(y)) - sc.clientWidth / 2, behavior: 'smooth' }); }
 function crGoItem(i) {
-  CR.sel = i; const it = crItems()[i]; const span = Math.abs(crAdj(it[3]) - crAdj(it[2]));
+  CR.sel = i; const it = crItems()[i]; const span = Math.abs(crA(it, it[3]) - crA(it, it[2]));
   if (span * CR.sc > $('#crSc').clientWidth * .8) CR.sc = Math.max(.15, $('#crSc').clientWidth * .6 / Math.max(span, 1));
   crRender(); const sc = $('#crSc'); const el = sc.querySelector('[data-ci="' + i + '"]');
-  sc.scrollLeft = crX((crAdj(it[2]) + crAdj(it[3])) / 2) - sc.clientWidth / 2; crSync();
+  sc.scrollLeft = crX((crA(it, it[2]) + crA(it, it[3])) / 2) - sc.clientWidth / 2; crSync();
   if (el) { sc.scrollTop = Math.max(0, el.offsetTop + el.parentNode.offsetTop - sc.clientHeight / 2); el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 1600); }
 }
 function crPersonIdx(it) {
@@ -2203,15 +2204,15 @@ function crPersonIdx(it) {
 function crClose() { const c = $('#chron'); if (c) c.remove(); }
 function crVerse(g) { crClose(); if (document.getElementById('study')) stPreview(g, 0); else openVerse(g, true); }
 function crCard(i) {
-  const it = crItems()[i], l = stLang(), s = crAdj(it[2]), e = crAdj(it[3]);
+  const it = crItems()[i], l = stLang(), s = crA(it, it[2]), e = crA(it, it[3]);
   const span = it[4] === 'e' ? crYear(s) : crYear(s) + ' – ' + crYear(e);
   const len = it[4] !== 'e' && e > s ? ' · ' + Math.round(e - s) + L(' ani', ' years') : '';
   const pi = crPersonIdx(it);
   let h = '<div class="cr-cd"><div class="cr-when">' + (it[10] ? 'c. ' : '') + span + len + '</div>' +
     '<div class="cr-cat c' + it[6] + '"><i>' + it[6] + '</i>' + L(CR_CAT[it[6]][0], CR_CAT[it[6]][1]) + '</div>' +
     (it[9] ? '<p>' + esc(it[9]) + (it[8].length ? '<sup class="cs" data-cs="' + it[8].join(',') + '">*</sup>' : '') + '</p>' : it[8].length ? '<p><sup class="cs" data-cs="' + it[8].join(',') + '">* ' + L('surse', 'sources') + '</sup></p>' : '') +
-    (CR.late && CR.mode === 'm' && it[2] < -1050 ? '<p class="cs-note">' + L('Afișat în varianta „Exod târziu” (c. 1260 î.Hr.): datele de dinainte de Saul sunt deplasate/comprimate proporțional — orientativ.', 'Shown with the late Exodus (c. 1260 BC): dates before Saul are shifted proportionally — indicative only.') + '</p>' : '') +
-    '<div class="cs-vs">' + it[7].map(n => pRefBtn(n, l)).join('') + '</div>' +
+    (CR.late && CR.mode === 'm' && it[2] < -1050 && it[5] !== 'W' ? '<p class="cs-note">' + L('Afișat în varianta „Exod târziu” (c. 1260 î.Hr.): datele de dinainte de Saul sunt deplasate/comprimate proporțional — orientativ.', 'Shown with the late Exodus (c. 1260 BC): dates before Saul are shifted proportionally — indicative only.') + '</p>' : '') +
+    (it[5] === 'W' ? '<p class="cs-note">' + L('Eveniment din istoria lumii, pus aici ca reper: ce se întâmpla în altă parte în aceeași perioadă. Nu e pomenit în Biblie.', 'World-history reference point; not mentioned in the Bible.') + '</p>' : '') + '<div class="cs-vs">' + it[7].map(n => pRefBtn(n, l)).join('') + '</div>' +
     (pi >= 0 ? '<button class="pp-mini on" data-p="' + pi + '"><span class="pp-av">' + esc(pShort(PEOPLE[pi].n).slice(0, 1)) + '</span><span class="pp-mt"><b>' + esc(pShort(PEOPLE[pi].n)) + '</b><small>' + L('Cardul persoanei', 'Person card') + '</small></span><span class="pp-go">›</span></button>' : '') + '</div>';
   ctxOverlay(it[0], h, ov => ov.querySelector('.ctx-bd').addEventListener('click', ev => {
     const c = ev.target.closest('.cs'); if (c) { ev.stopPropagation(); fnPop(c, '<div class="fn-h">' + L('Surse', 'Sources') + '</div>' + c.dataset.cs.split(',').map(srcCard).join(''), bindUrls); return; }
@@ -2263,7 +2264,7 @@ function openChron(atYear) {
     $('#crZi').onclick = () => crZoomTo(CR.sc * 1.6); $('#crZo').onclick = () => crZoomTo(CR.sc / 1.6);
     el.querySelectorAll('[data-m]').forEach(b => b.onclick = () => { CR.mode = b.dataset.m; CR.sel = null; segs(); crRender(); sc.scrollLeft = crX(CR.mode === 'g' ? 1000 : -1000) - sc.clientWidth / 2; crSync(); hap(0); });
     el.querySelectorAll('[data-x]').forEach(b => b.onclick = () => { const mid = (sc.scrollLeft + sc.clientWidth / 2 - 120) / CR.sc + crRange()[0]; CR.late = b.dataset.x === '1'; segs(); crRender(); sc.scrollLeft = crX(mid) - sc.clientWidth / 2; crSync(); hap(0); });
-    $('#crSrc').onclick = e => fnPop(e.currentTarget, '<div class="fn-h">' + L('Metodă', 'Method') + '</div><p class="cs-note">' + L('Datele vin din trei feluri de surse, marcate pe fiecare element: A — confirmate de documente externe (cronici asiriene și babiloniene, inscripții); B — calculate din cifrele textului biblic (vârste, ani de domnie); C — reconstrucții academice (de ex. cronologia împăraților după Thiele); D — aproximări; E — disputate. Înainte de Avraam axa e în „anii lumii”, nu în ani î.Hr. Cronologia judecătorilor și data Exodului sunt nesigure; poți compara cele două variante ale Exodului.', 'A outside evidence; B biblical numbers; C scholarly reconstruction; D approximation; E disputed.') + '</p>' + ['thiele', 'finegan', 'wood', 'hoff', 'bar_ex', 'brit_paul'].map(srcCard).join('') + '<div class="cs-card"><b>STEPBible — TIPNR</b><span>Tyndale House, Cambridge</span><small>CC BY 4.0 · ' + L('persoanele pe epoci', 'people by era') + '</small><a href="https://github.com/STEPBible/STEPBible-Data" data-url>' + L('Deschide sursa (online)', 'Open source (online)') + ' ↗</a></div>', bindUrls);
+    $('#crSrc').onclick = e => fnPop(e.currentTarget, '<div class="fn-h">' + L('Metodă', 'Method') + '</div><p class="cs-note">' + L('Datele vin din trei feluri de surse, marcate pe fiecare element: A — confirmate de documente externe (cronici asiriene și babiloniene, inscripții); B — calculate din cifrele textului biblic (vârste, ani de domnie); C — reconstrucții academice (de ex. cronologia împăraților după Thiele); D — aproximări; E — disputate. Înainte de Avraam axa e în „anii lumii”, nu în ani î.Hr. Cronologia judecătorilor și data Exodului sunt nesigure; poți compara cele două variante ale Exodului.', 'A outside evidence; B biblical numbers; C scholarly reconstruction; D approximation; E disputed.') + '</p>' + ['thiele', 'finegan', 'wood', 'hoff', 'bar_ex', 'brit_paul', 'shaw', 'brit_ham', 'brit_rom'].map(srcCard).join('') + '<div class="cs-card"><b>STEPBible — TIPNR</b><span>Tyndale House, Cambridge</span><small>CC BY 4.0 · ' + L('persoanele pe epoci', 'people by era') + '</small><a href="https://github.com/STEPBible/STEPBible-Data" data-url>' + L('Deschide sursa (online)', 'Open source (online)') + ' ↗</a></div>', bindUrls);
     el.addEventListener('click', e => {
       const ci = e.target.closest('[data-ci]'); if (ci) { CR.sel = +ci.dataset.ci; el.querySelectorAll('.cr-i.on').forEach(x => x.classList.remove('on')); ci.classList.add('on'); crCard(+ci.dataset.ci); return; }
       const er = e.target.closest('[data-era]'); if (er) { crEra(+er.dataset.era); return; }
