@@ -1,6 +1,6 @@
 (function () {
 'use strict';
-const APP_VER = '8.2';
+const APP_VER = '8.3';
 const $ = s => document.querySelector(s);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const A = window.Android || null;
@@ -1194,7 +1194,7 @@ function lexClean(t) { // the Strong's source has some markup in the translitera
 }
 function lexEntry(code) {
   if (!window.LEX_H) return null; const n = +code.slice(1); const e = (code[0] === 'H' ? LEX_H : LEX_G)[n] || null;
-  if (e && !e._c) { for (let i = 0; i < e.length; i++) e[i] = lexClean(e[i]); e[0] = e[0].replace(/\s{2,}/g, ' · '); e[1] = e[1].replace(/\s{2,}/g, ' · '); try { Object.defineProperty(e, '_c', { value: 1 }); } catch (x) {} }
+  if (e && !e._c) { for (let i = 0; i < e.length; i++) e[i] = lexClean(e[i]); e[0] = e[0].replace(/\s{2,}/g, ' · '); e[1] = e[1].replace(/\s{2,}/g, ' · '); if (e[2] && e[2].trim()) { e[1] = e[2].trim().replace(/\s{2,}/g, ' · '); e[2] = ''; } try { Object.defineProperty(e, '_c', { value: 1 }); } catch (x) {} }
   return e;
 }
 const ETYM = /^\s*(?:\((?:caldeeană|aramaică)\)\s*;?\s*)?(?:(?:o |un )?(?:rădăcină primară|particulă primară|cuvânt primar|verb primar)|(?:din|plural de la|feminin de la|masculin de la|formă prelungită a|o variantă pentru|la fel ca|corespunzător lui|compară)\b[^;]*|de (?:origine|înrudire|derivare) [^;]*|probabil din[^;]*|poate din[^;]*|aparent din[^;]*)\s*[;,]\s*/i;
