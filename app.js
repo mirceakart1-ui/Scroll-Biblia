@@ -1,6 +1,6 @@
 (function () {
 'use strict';
-const APP_VER = '8.1';
+const APP_VER = '8.2';
 const $ = s => document.querySelector(s);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const A = window.Android || null;
@@ -638,7 +638,7 @@ const slots = [-1, 0, 1].map(() => { const el = document.createElement('div'); e
 const TABF = () => Math.min(innerWidth, innerHeight) >= 600 ? 1.4 : 1;
 function fontFor(len) { const base = len < 70 ? 25 : len < 130 ? 22 : len < 200 ? 19.5 : len < 280 ? 18 : 16.5; return Math.round(base * S.fs * TABF()) + 'px'; }
 function fillCard(el, it) {
-  const key = it ? (S.topic || '') + (NARR.on ? 'N' : '') + (TTS.on ? 'T' : '') + mode + (it.pix != null ? 'p' + it.pix : '') + it.g + S.lang + curVer('ro') + curVer('en') + S.fs + TABF() + (it.votd ? 'v' : '') + (S.liked[it.g] ? 'L' : '') + (S.saved[it.g] ? 'S' : '') : 'none';
+  const key = it ? (S.topic || '') + (NARR.on ? 'N' : '') + (TTS.on ? 'T' : '') + mode + (it.pix != null ? 'p' + it.pix : '') + it.g + S.lang + curVer('ro') + curVer('en') + JSON.stringify(S.onv || {}) + S.fs + TABF() + (it.votd ? 'v' : '') + (S.liked[it.g] ? 'L' : '') + (S.saved[it.g] ? 'S' : '') : 'none';
   if (el._key === key) return; el._key = key;
   if (!it) { el.querySelector('.content').innerHTML = ''; el.querySelector('.actions').innerHTML = ''; el.style.visibility = 'hidden'; return; }
   el.style.visibility = '';
@@ -653,7 +653,7 @@ function fillCard(el, it) {
   if (it.pday != null) { const pd = planData(S.plan); const start = pd.dayStart[it.pday] === it.pix; h += '<div class="badge plan st-' + dayStatus(S.plan, it.pday) + '">' + (start ? T('▶ Începe ') : '') + T('Ziua ') + (it.pday + 1) + T(' din ') + pd.days.length + '</div>'; }
   h += '<p class="verse" style="font-size:' + fontFor(t1.length + (S.lang === 'both' ? 60 : 0)) + '">' + rich(g, main) + '</p>';
   if (S.lang === 'both') h += '<p class="verse2" style="font-size:' + Math.round(16 * S.fs * TABF()) + 'px">' + rich(g, 'en') + '</p>';
-  h += '<div class="ref">' + esc(label(g, main)) + ' <small class="vab">' + verAbbr(main, g) + '</small>' + (S.lang === 'both' ? ' · ' + esc(label(g, 'en')) + ' <small class="vab">' + verAbbr('en', g) + '</small>' : '') + '</div>';
+  h += '<div class="ref">' + esc(label(g, main)) + ' <small class="vab">' + verAbbr(main, g) + '</small>' + onvLinks(g) + (S.lang === 'both' ? ' · ' + esc(label(g, 'en')) + ' <small class="vab">' + verAbbr('en', g) + '</small>' : '') + '</div>';
   if (mode === 'read' || mode === T('plan')) { const r = ref(g); h += T('<div class="pos">Versetul ') + (r.v + 1) + T(' din ') + VC[r.b][r.c] + '</div>'; }
   const xs = xrefs(g);
   if (xs.length) h += '<div class="chips">' + xs.slice(0, 3).map(x => '<button class="chip" data-x="' + x.g + '">' + esc(xlabel(x, main)) + '</button>').join('') + (xs.length > 3 ? '<button class="chip more" data-v="' + g + '">+' + (xs.length - 3) + T(' trimiteri</button>') : '') + '</div>';
@@ -822,6 +822,7 @@ function swipeTab(dir) {
   feed.animate([{ transform: 'translateX(' + (dir * 60) + 'px)', opacity: .35 }, { transform: 'none', opacity: 1 }], { duration: 260, easing: 'cubic-bezier(.2,.8,.2,1)' });
 }
 function tapTarget(t) {
+  const ov = t.closest('[data-onv]'); if (ov) { openOnv(ov.dataset.onv, +ov.dataset.g); return true; }
   const c = t.closest('[data-x]'); if (c) { openVerse(+c.dataset.x); return true; }
   const m = t.closest('[data-v]'); if (m) { openVerse(+m.dataset.v, false, 'xr'); return true; }
   return false;
@@ -1207,6 +1208,7 @@ function openVerse(g, push, focus, tapped) {
   if (S.lang === 'both' || l === 'ro') h += '<p class="vt2">' + rich(g, 'en') + '</p>';
   h += '</div>';
   h += '<button class="btn" data-go="' + g + '">' + I.book + T(' Citește de aici</button><button class="btn ghost" data-chap="') + g + T('">Capitolul</button><button class="btn ghost" data-sv="') + g + '">' + (S.saved[g] ? T('Salvat ✓') : T('Salvează')) + '</button><button class="btn ghost" data-nt="' + g + '">' + I.pen + ' ' + L('În notițe', 'To notes') + '</button>';
+  if (onvBtns(g)) h += '<div class="chips">' + onvBtns(g) + '</div>';
   const xs = xrefs(g);
   h += T('<div class="sec" id="xr">Trimiteri (') + xs.length + ')</div>';
   h += xs.length ? '<div class="chips big">' + xs.map(x => '<button class="chip" data-x="' + x.g + '">' + esc(xlabel(x, l)) + '</button>').join('') + '</div>' : T('<div class="hint">Nu există trimiteri pentru acest verset.</div>');
@@ -1215,6 +1217,7 @@ function openVerse(g, push, focus, tapped) {
   if (tapped) h += T('<div class="hint">Ai atins „') + esc(tapped) + T('”. Alege cuvântul corespunzător din lista de mai jos (textul românesc nu e aliniat cuvânt cu cuvânt cu originalul).</div>');
   h += ws.map(w => { const e = lexEntry(w.s) || ['', '', '', '', '']; return '<button class="orow" data-s="' + w.s + '"><span class="oen">' + esc(w.en) + '</span><span class="oor ' + (w.s[0] === 'H' ? 'heb' : 'grk') + '">' + esc(e[0]) + '</span><span class="otr">' + esc(e[1]) + ' · ' + w.s + '</span><span class="odef">' + esc(shortDef(e, w.s)) + '</span></button>'; }).join('');
   openSheet(label(g, l), h, body => {
+    body.querySelectorAll('[data-onv]').forEach(b => b.onclick = () => openOnv(b.dataset.onv, +b.dataset.g));
     body.querySelectorAll('[data-x]').forEach(b => b.onclick = () => openVerse(+b.dataset.x, true));
     body.querySelectorAll('.orow').forEach(b => b.onclick = () => openWord(b.dataset.s, true, g));
     body.querySelectorAll('.vbox .w').forEach(w => w.onclick = () => { if (w.dataset.s) openWord(w.dataset.s.split(' ')[0], true, g); else loadAlign(() => { const oc = alignRo(g, w.textContent, w); if (oc) openWord(oc, true, g); else { const t = body.querySelector('#words'); t && scrollTo(body, t, false, true); } }); });
@@ -1523,9 +1526,18 @@ function curVer(l) { const v = (S.ver || {})[l]; return v && VVAR[v] && window[V
 function verAbbr(l, g) { const v = curVer(l); if (g != null && VVAR[v] && altv(g, l) == null) return (VERS[l][0][2]); return VERS[l].find(x => x[0] === v)[2]; }
 function altv(g, l) { const v = curVer(l); if (!VVAR[v]) return null; const r = ref(g); const t = window[VVAR[v]][r.b] && window[VVAR[v]][r.b][r.c] && window[VVAR[v]][r.b][r.c][r.v]; return t || null; }
 function loadVer(v, cb) { if (!VVAR[v] || window[VVAR[v]]) { cb && cb(); return; } toast(L('Se încarcă traducerea…', 'Loading translation…')); const sc = document.createElement('script'); sc.src = 'v_' + v + '.js'; sc.onload = () => cb && cb(); sc.onerror = () => toast(L('Traducerea nu s-a putut încărca', 'Translation failed to load')); document.head.appendChild(sc); }
+const ONV = { ro: [['ntr', 'NTR', 'Noua Traducere Românească', 'Biblica, Inc.', 126], ['edcr', 'EDCR', 'Ediția Dumitru Cornilescu Revizuită', 'BFBS / Societatea Biblică Interconfesională', 2311]],
+  en: [['niv', 'NIV', 'New International Version', L('engleză modernă, echilibrată', 'modern, balanced English')], ['nkjv', 'NKJV', 'New King James Version', L('limbaj modernizat, păstrează stilul KJV', 'modernized KJV style')], ['esv', 'ESV', 'English Standard Version', L('cuvânt cu cuvânt, literar', 'essentially literal')], ['nasb', 'NASB', 'New American Standard Bible', L('cea mai apropiată de structura originalului', 'closest to the original structure')]] };
+function onvUrl(k, g) { const r = ref(g); for (const l of ['ro', 'en']) { const o = ONV[l].find(x => x[0] === k); if (!o) continue;
+  return l === 'ro' ? 'https://www.bible.com/bible/' + o[4] + '/' + USFM[r.b] + '.' + (r.c + 1) + '.' + (r.v + 1) + '.' + o[1] : 'https://www.biblegateway.com/passage/?search=' + encodeURIComponent(BK.en[r.b] + ' ' + (r.c + 1) + ':' + (r.v + 1)) + '&version=' + o[1]; } return null; }
+function onvLinks(g) { const o = S.onv || {}; return ['ro', 'en'].filter(l => o[l] && (S.lang === 'both' || S.lang === l)).map(l => { const x = ONV[l].find(y => y[0] === o[l]); return x ? ' <span class="onvl" data-onv="' + x[0] + '" data-g="' + g + '">– ' + x[1] + ' ↗</span>' : ''; }).join(''); }
+function onvBtns(g) { const o = S.onv || {}; return ['ro', 'en'].filter(l => o[l] && (S.lang === 'both' || S.lang === l)).map(l => { const x = ONV[l].find(y => y[0] === o[l]); return x ? '<button class="chip onv" data-onv="' + x[0] + '" data-g="' + g + '">' + x[1] + ' ↗</button>' : ''; }).join(''); }
+function openOnv(k, g) { const u = onvUrl(k, g); if (!u) return; try { A && A.openUrl ? A.openUrl(u) : window.open(u, '_blank'); } catch (e) {} }
 function openVersions() {
   const grp = l => '<div class="sec">' + (l === 'ro' ? '🇷🇴 ' + L('Română', 'Romanian') : '🇬🇧 English') + '</div>' + VERS[l].map(([k, n, a, d]) => '<button class="mitem vchk' + (curVer(l) === k ? ' on' : '') + '" data-vl="' + l + '" data-vk="' + k + '"><b>' + (curVer(l) === k ? '✓ ' : '') + esc(n) + ' <small>' + a + '</small></b><small>' + esc(d) + '</small></button>').join('');
-  openSheet(L('Traducerea Bibliei', 'Bible translation'), grp('ro') + grp('en') + '<p class="hint">' + L('Atingerea cuvintelor, dicționarul și cuvintele originale folosesc în continuare Cornilescu și KJV (cu numere Strong) în fundal. Unde o traducere nu are un verset (ex. LSB în Vechiul Testament), se arată Cornilescu sau KJV.', 'Word taps, dictionary and original words still use Cornilescu and KJV (Strong) in the background.') + '</p><p class="hint">' + L('NTR (Noua Traducere Românească) nu poate fi inclusă: are drepturi de autor (Biblica).', 'NTR is copyrighted (Biblica).') + '</p>', body => {
+  const og = l => ONV[l].map(([k, a, n, d]) => '<button class="mitem vchk' + ((S.onv || {})[l] === k ? ' on' : '') + '" data-ol="' + l + '" data-ok="' + k + '"><b>' + ((S.onv || {})[l] === k ? '✓ ' : '') + esc(n) + ' <small>' + a + ' ↗</small></b><small>' + esc(d) + '</small></button>').join('');
+  openSheet(L('Traducerea Bibliei', 'Bible translation'), grp('ro') + grp('en') + '<div class="sec">' + L('Online · cu drepturi de autor', 'Online · copyrighted') + '</div><p class="hint">' + L('Nu pot fi incluse în aplicație. Bifează una și lângă trimitere (ex. Geneza 1:1 – NTR ↗) apare un link care deschide versetul în YouVersion (NTR, EDCR) sau Bible Gateway (NIV, NKJV, ESV, NASB). Necesită internet.', 'Cannot be bundled; a button opens the verse online.') + '</p>' + og('ro') + og('en') + '<p class="hint">' + L('Atingerea cuvintelor, dicționarul și cuvintele originale folosesc în continuare Cornilescu și KJV (cu numere Strong) în fundal. Unde o traducere nu are un verset (ex. LSB în Vechiul Testament), se arată Cornilescu sau KJV.', 'Word taps, dictionary and original words still use Cornilescu and KJV (Strong) in the background.') + '</p><p class="hint">' + L('NTR, EDCR, NIV, NKJV, ESV și NASB au drepturi de autor; textul lor nu poate fi pus în aplicație, dar se deschide online de mai sus.', 'NTR is copyrighted (Biblica).') + '</p>', body => {
+    body.querySelectorAll('[data-ok]').forEach(b => b.onclick = () => { const l = b.dataset.ol, k = b.dataset.ok; S.onv = Object.assign({}, S.onv || {}, { [l]: (S.onv || {})[l] === k ? null : k }); persist(); refresh(); closeSheet(); toast(S.onv[l] ? ONV[l].find(x => x[0] === k)[1] + ' ↗ ' + L('apare lângă trimiterea versetului', 'shown next to the reference') : L('Oprit', 'Off')); });
     body.querySelectorAll('[data-vk]').forEach(b => b.onclick = () => { const l = b.dataset.vl, k = b.dataset.vk; loadVer(k, () => { S.ver = Object.assign({}, S.ver || {}, { [l]: k }); if (S.lang !== 'both' && S.lang !== l) S.lang = l; persist(); refresh(); closeSheet(); toast((l === 'ro' ? '🇷🇴 ' : '🇬🇧 ') + VERS[l].find(x => x[0] === k)[1]); }); });
   }, sheetOpen());
 }
