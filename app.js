@@ -2032,7 +2032,7 @@ function openPerson(i) {
     '<div>' + pRefBtn(p.f, l) + '<small>' + L('prima mențiune', 'first mention') + '</small></div></div>';
   const bio = p.d || pTemplate(p);
   if (bio) h += '<div class="cs-sec cs-B"><div class="cs-cat"><i>B</i>' + L('Pe scurt, după textul biblic', 'In brief, from the biblical text') + '</div><p>' + esc(bio) + '</p></div>';
-  if (x.age || x.loc) h += '<div class="pp-facts">' + (x.age ? '<div><span>' + L('Cât a trăit', 'Lifespan') + '</span>' + esc(x.age) + '</div>' : '') + (x.loc ? '<div><span>' + L('Unde', 'Where') + '</span>' + esc(x.loc) + '</div>' : '') + '</div>';
+  if (x.age || x.loc) h += '<div class="pp-facts">' + (x.age ? '<div><span>' + L('Vârstă / domnie', 'Age / reign') + '</span>' + esc(x.age) + '</div>' : '') + (x.loc ? '<div><span>' + L('Unde', 'Where') + '</span>' + esc(x.loc) + '</div>' : '') + '</div>';
   else if (p.pl && p.pl.length) h += '<div class="pp-facts"><div><span>' + L('Locuri', 'Places') + '</span>' + esc(p.pl.join(', ')) + '<small> — ' + L('pomenite des împreună cu el/ea', 'often mentioned together') + '</small></div></div>';
   if (x.r && x.r.length) h += '<div class="pp-sec"><div class="cs-cat">' + L('Repere', 'Milestones') + '</div>' + x.r.map(([t, rs]) => '<div class="pp-ev"><span>' + esc(t) + '</span><span class="cs-vs">' + rs.split(';').map(ctxRef).filter(g => g != null).map(g => '<button class="cs-v" data-g="' + g + '">' + esc(slabel(g, l)) + '</button>').join('') + '</span></div>').join('') + '</div>';
   const fam = [[L('Părinți', 'Parents'), p.fa], [L('Frați / surori', 'Siblings'), p.si], [L('Soț / soție', 'Spouse'), p.sp], [L('Copii', 'Children'), p.ch]].filter(f => f[1] && f[1].length);
