@@ -1,6 +1,6 @@
 (function () {
 'use strict';
-const APP_VER = '7.4';
+const APP_VER = '7.5';
 const $ = s => document.querySelector(s);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const A = window.Android || null;
@@ -2075,9 +2075,9 @@ function geoView(list, mode, extra) {
   }
   return [x0, y0, x1 - x0, y1 - y0];
 }
-const GM_MODE = { w: ['🚶', 'pe jos', 'on foot'], s: ['⛵', 'cu corabia', 'by ship'], c: ['🐫', 'caravană cu animale', 'caravan with animals'], d: ['🫏', 'cu măgarul', 'by donkey'], v: ['🛞', 'cu carele', 'by wagons'] };
+const GM_MODE = { w: ['🚶', 'pe jos', 'on foot'], s: ['⛵', 'cu corabia', 'by ship'], c: ['🐫', 'caravană cu animale', 'caravan with animals'], d: ['🫏', 'cu măgarul', 'by donkey'], v: ['🛞', 'cu carul / carele', 'by cart / wagons'], h: ['🐎', 'călare', 'on horseback'] };
 const GM_TERR = { d: ['Deșert', 'Desert'], m: ['Munți', 'Mountains'], p: ['Podiș', 'Plateau'], f: ['Câmpie / deltă fertilă', 'Fertile plain / delta'] };
-const GM_SPEED = { w: [20, 30], c: [10, 20], d: [25, 30], v: [15, 25], s: [90, 200] };
+const GM_SPEED = { w: [20, 30], c: [10, 20], d: [25, 30], v: [15, 25], s: [90, 200], h: [30, 50] };
 const GM_SRC = { orbis: ['„Orbis: The Stanford Geospatial Network Model of the Roman World”, Princeton/Stanford Working Papers in Classics', 'Walter Scheidel (model: W. Scheidel, E. Meeks)', '2015', 'academic · model al vitezelor de călătorie în antichitate', 'https://papers.ssrn.com/abstract=2609654'], casson: ['„Speed under Sail of Ancient Ships”, Transactions of the American Philological Association 82, pp. 136–148', 'Lionel Casson', '1951', 'academic · articol de referință', 'https://penelope.uchicago.edu/Thayer/E/Journals/TAPA/82/Speed_under_Sail_of_Ancient_Ships*.html'] };
 function gKm(a, b) { const R0 = 6371, t = Math.PI / 180, dLa = (b[2] - a[2]) * t, dLo = (b[1] - a[1]) * t; const h = Math.sin(dLa / 2) ** 2 + Math.cos(a[2] * t) * Math.cos(b[2] * t) * Math.sin(dLo / 2) ** 2; return 2 * R0 * Math.asin(Math.sqrt(h)); }
 function routeInfoHtml(id, part) {
@@ -2179,7 +2179,12 @@ function openMap(list, title, chap) {
     ov.querySelector('.ctx-bd').addEventListener('click', e => {
       const z = e.target.closest('[data-gz]'); if (z) { ov.querySelectorAll('[data-gz]').forEach(b => b.classList.toggle('on', b === z)); view = geoView(list, z.dataset.gz, rPts()); redraw(); hap(0); return; }
       if (e.target.closest('[data-gt]')) { opt.terr = !opt.terr; S.mapTerr = opt.terr; persist(); redraw(); refreshUI(); hap(0); return; }
-      const rsb = e.target.closest('[data-grs]'); if (rsb) { fnPop(rsb, '<div class="fn-h">' + L('Trasee biblice', 'Biblical routes') + '</div>' + GROUTES.map(R => '<button class="fn-r gm-rch' + (opt.routes.indexOf(R[0]) >= 0 ? ' on' : '') + '" data-rid="' + R[0] + '"><b><i style="background:' + R[2] + '"></i>' + esc(R[1]) + '</b><span>' + (opt.routes.indexOf(R[0]) >= 0 ? '✓ ' + L('afișat', 'shown') : L('atinge ca să afișezi', 'tap to show')) + '</span></button>').join(''), pop => pop.querySelectorAll('[data-rid]').forEach(b => b.onclick = () => { const id = b.dataset.rid, k = opt.routes.indexOf(id); if (k >= 0) { opt.routes.splice(k, 1); delete opt.part[id]; } else { opt.routes.push(id); delete opt.part[id]; view = geoView(list, 'c', rPts()); } pop.remove(); redraw(); refreshUI(); hap(0); })); return; }
+      const rsb = e.target.closest('[data-grs]'); if (rsb) {
+        const here = Object.keys(auto), item = R => '<button class="fn-r gm-rch' + (opt.routes.indexOf(R[0]) >= 0 ? ' on' : '') + '" data-rid="' + R[0] + '"><b><i style="background:' + R[2] + '"></i>' + esc(R[1]) + '</b><span>' + (opt.routes.indexOf(R[0]) >= 0 ? '✓ ' + L('afișat', 'shown') : L('atinge ca să afișezi', 'tap to show')) + '</span></button>';
+        const others = GROUTES.filter(R => here.indexOf(R[0]) < 0);
+        const html = '<div class="fn-h">' + L('Trasee în acest pasaj', 'Routes in this passage') + '</div>' + (here.length ? GROUTES.filter(R => here.indexOf(R[0]) >= 0).map(item).join('') : '<p class="cs-note">' + L('Niciun traseu nu trece prin acest pasaj.', 'No route passes through this passage.') + '</p>') +
+          '<button class="fn-r gm-more" data-gmore="1"><b>▸ ' + L('Toate traseele din Biblie', 'All biblical routes') + ' (' + others.length + ')</b></button><div class="gm-others hidden">' + others.map(item).join('') + '</div>';
+        fnPop(rsb, html, pop => { pop.querySelector('[data-gmore]').onclick = () => { pop.querySelector('.gm-others').classList.toggle('hidden'); pop.querySelector('[data-gmore] b').textContent = (pop.querySelector('.gm-others').classList.contains('hidden') ? '▸ ' : '▾ ') + L('Toate traseele din Biblie', 'All biblical routes') + ' (' + others.length + ')'; }; pop.querySelectorAll('[data-rid]').forEach(b => b.onclick = () => { const id = b.dataset.rid, k = opt.routes.indexOf(id); if (k >= 0) { opt.routes.splice(k, 1); delete opt.part[id]; } else { opt.routes.push(id); delete opt.part[id]; view = geoView(list, 'c', rPts()); } pop.remove(); redraw(); refreshUI(); hap(0); }); }); return; }
       const csx = e.target.closest('.cs'); if (csx && csx.closest('.gm-rc')) { e.stopPropagation(); loadChron(() => fnPop(csx, '<div class="fn-h">' + L('Surse', 'Sources') + '</div>' + csx.dataset.cs.split(',').map(srcCard).join(''), bindUrls)); return; }
       const zi = e.target.closest('[data-gzi]'); if (zi) { zoom(+zi.dataset.gzi > 0 ? 1 / 1.6 : 1.6, .5, .5); redraw(); hap(0); return; }
       if (moved && box.contains(e.target)) { moved = false; return; } moved = false;
