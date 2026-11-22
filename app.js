@@ -2157,8 +2157,7 @@ function crRender() {
   let h = '';
   order.forEach(gk => {
     const lanes = [], els = [];
-    its.forEach((it, i) => {
-      if (it[5] !== gk) return;
+    its.map((it, i) => i).filter(i => its[i][5] === gk).sort((a, b) => crA(its[a], its[a][2]) - crA(its[b], its[b][2])).forEach(i => { const it = its[i];
       const s = crA(it, it[2]), e = crA(it, it[3]), x0 = crX(s), x1 = Math.max(crX(e), x0 + (it[4] === 'e' ? 0 : 5));
       const lw = Math.min(176, it[0].length * 6.6 + 14), ev = it[4] === 'e';
       const inside = !ev && x1 - x0 > lw;
