@@ -1,6 +1,6 @@
 (function () {
 'use strict';
-const APP_VER = '7.6';
+const APP_VER = '7.7';
 const $ = s => document.querySelector(s);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const A = window.Android || null;
@@ -1741,6 +1741,11 @@ function showVotd() {
 }
 $('#btnMenu').innerHTML = I.menu; $('#btnSearch').innerHTML = I.search;
 $('#btnMenu').onclick = openMenu;
+(() => { if (!matchMedia('(hover:hover) and (pointer:fine)').matches) return; const R = document.documentElement; let t = null;
+  const hideLater = () => { clearTimeout(t); t = setTimeout(() => { if (!$('#top').matches(':hover')) R.classList.add('mhide'); }, 1500); };
+  document.addEventListener('mousemove', e => { if (e.clientY < 90) { clearTimeout(t); R.classList.remove('mhide'); } else if (!R.classList.contains('mhide')) hideLater(); }, { passive: true });
+  document.addEventListener('mouseleave', hideLater); hideLater();
+})();
 (() => { let y0 = null; const top = $('#top');
   top.addEventListener('touchstart', e => { y0 = e.touches[0].clientY; }, { passive: true });
   top.addEventListener('touchmove', e => { if (y0 != null && e.touches[0].clientY - y0 > 45) { y0 = null; haptic(); openMenu(); } }, { passive: true });
