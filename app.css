@@ -981,3 +981,8 @@ html.day #verWm{color:#1f1d26}
 @media (hover:hover) and (pointer:fine){#chron .cr-top,#chron .cr-bar{max-height:90px;transition:max-height .35s ease,padding .35s ease,opacity .3s ease}html.mhide #chron .cr-top,html.mhide #chron .cr-bar{max-height:0;padding-top:0;padding-bottom:0;opacity:0;overflow:hidden}}
 .fn-pop .dh{margin:4px 2px 6px}.fn-pop .dtx{opacity:.9}.fn-pop .dsrc{display:block;opacity:.55;font-size:11.5px;margin:8px 2px 0}
 .wext.dict .dh{margin:0 0 10px;font-size:15px}
+.wext.dict i[data-hw]{font-style:normal;color:#ffd166;text-decoration:underline dotted;cursor:pointer}
+.nv-i{margin:10px 0}.nv-t{font-size:14.5px;margin:0 2px 6px}.nv-see{opacity:.85}
+.gn{display:flex;gap:6px;align-items:stretch;margin:8px 0}.gn-m{flex:1;text-align:left;border:0;border-radius:14px;padding:10px 12px;background:rgba(127,127,127,.12);color:inherit;font:inherit;display:flex;flex-direction:column;gap:2px}
+.gn-m b{font-size:15.5px}.gn-m span{font-size:18px;opacity:.9}.gn-m small{opacity:.6}.gn-m i{font-size:13px;opacity:.75}
+.gn-i{border:0;border-radius:12px;background:rgba(127,127,127,.12);color:inherit;font:inherit;font-size:12px;min-width:44px;padding:0 6px}
