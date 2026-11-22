@@ -2055,7 +2055,7 @@ function placesInChapter(b, c) { const x = gIdx(); if (!x) return []; const m = 
 function placesInVerse(g) { const x = gIdx(); return x ? (x.v[pEncG(g)] || []).map(i => [i, [pEncG(g)]]) : []; }
 const gXY = (lo, la) => [(lo - 8) * 100 * GEOBASE.k, (46 - la) * 100];
 function gConf(n) { return n >= 900 ? [L('sigur', 'certain'), 'c4'] : n >= 500 ? [L('probabil', 'likely'), 'c3'] : n >= 200 ? [L('posibil', 'possible'), 'c2'] : [L('incert', 'uncertain'), 'c1']; }
-function geoSvg(list, mode) {
+function geoView(list, mode) {
   const B = GEOBASE, pts = list.map(([i]) => { const p = GEO[i]; return gXY(p[2], p[3]); });
   let x0 = 0, y0 = 0, x1 = B.w, y1 = B.h;
   if (mode !== 'w' && pts.length) {
@@ -2064,13 +2064,19 @@ function geoSvg(list, mode) {
     if (w / h < 1.25) w = h * 1.25; else h = w / 1.25;
     x0 = cx - w / 2; x1 = cx + w / 2; y0 = cy - h / 2; y1 = cy + h / 2;
   }
-  const W = x1 - x0, fs = W / 30, many = list.length > 30, r = W / (many ? 130 : 62);
+  return [x0, y0, x1 - x0, y1 - y0];
+}
+function geoSvg(list, v) {
+  const B = GEOBASE, pts = list.map(([i]) => { const p = GEO[i]; return gXY(p[2], p[3]); });
+  const [x0, y0] = v, x1 = v[0] + v[2], y1 = v[1] + v[3];
+  const W = x1 - x0, fs = W / 30, inV = ([x, y]) => x > x0 && x < x1 && y > y0 && y < y1, nv = pts.filter(inV).length, many = nv > 30, r = W / (many ? 130 : 62), sw = (fs * .2).toFixed(2);
   const refs = [['Ierusalim', 35.23, 31.78], ['Damasc', 36.29, 33.51], ['Babilon', 44.42, 32.54], ['Ninive', 43.15, 36.36], ['Memfis', 31.25, 29.85], ['Susa', 48.26, 32.19], ['Antiohia', 36.16, 36.2], ['Efes', 27.34, 37.94], ['Atena', 23.72, 37.97], ['Roma', 12.49, 41.89], ['Tir', 35.2, 33.27], ['Gaza', 34.46, 31.5], ['Corint', 22.88, 37.91], ['Ur', 46.1, 30.96], ['Haran', 39.03, 36.86]];
   const used = [];
   const free = (x, y) => !used.some(u => Math.abs(u[0] - x) < fs * 4 && Math.abs(u[1] - y) < fs * 1.1);
   let lab = '', mk = '';
   list.forEach(([i], k) => { const [x, y] = pts[k]; mk += '<g class="gm-m" data-gi="' + i + '"><circle cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="' + r.toFixed(2) + '"/><text class="gm-n" x="' + x.toFixed(1) + '" y="' + (y + r * .42).toFixed(1) + '" font-size="' + (r * 1.15).toFixed(2) + '">' + (k + 1) + '</text></g>'; });
-  list.forEach(([i], k) => { const [x, y] = pts[k]; if (k < 25 && free(x + r * 1.4, y)) { used.push([x + r * 1.4 + fs * 2, y]); lab += '<text class="gm-l" x="' + (x + r * 1.4).toFixed(1) + '" y="' + (y + fs * .35).toFixed(1) + '" font-size="' + fs.toFixed(2) + '">' + esc(pShort(GEO[i][0])) + '</text>'; } });
+  let nl = 0;
+  list.forEach(([i], k) => { const [x, y] = pts[k]; if (inV(pts[k]) && nl < 25 && free(x + r * 1.4, y)) { nl++; used.push([x + r * 1.4 + fs * 2, y]); lab += '<text class="gm-l" stroke-width="' + sw + '" x="' + (x + r * 1.4).toFixed(1) + '" y="' + (y + fs * .35).toFixed(1) + '" font-size="' + fs.toFixed(2) + '">' + esc(pShort(GEO[i][0])) + '</text>'; } });
   const names = list.map(([i]) => pShort(GEO[i][0]));
   const rl = refs.map(q => [q, gXY(q[1], q[2])]).filter(([q, [x, y]]) => x > x0 && x < x1 && y > y0 && y < y1 && names.indexOf(q[0]) < 0 && free(x, y)).map(([q, [x, y]]) => { used.push([x, y]); return '<circle class="gm-rd" cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="' + (r * .45).toFixed(2) + '"/><text class="gm-rl" x="' + (x + r * .8).toFixed(1) + '" y="' + (y + fs * .3).toFixed(1) + '" font-size="' + (fs * .8).toFixed(2) + '">' + q[0] + '</text>'; }).join('');
   return '<svg class="gm" viewBox="' + [x0, y0, W, y1 - y0].map(v => v.toFixed(1)).join(' ') + '" preserveAspectRatio="xMidYMid slice"><rect x="-9999" y="-9999" width="29999" height="29999" class="gm-sea"/><path class="gm-land" d="' + B.land + '"/><path class="gm-lake" d="' + B.lake + '"/><path class="gm-riv" d="' + B.riv + '"/>' + rl + mk + lab + '</svg>';
@@ -2081,19 +2087,201 @@ function openMap(list, title, chap) {
     return '<div class="gm-it" data-gi="' + i + '"><div class="gm-ih"><span class="gm-no">' + (k + 1) + '</span><b>' + esc(p[0]) + '</b>' + (p[0] !== p[1] ? '<small> · ' + esc(p[1]) + '</small>' : '') + '<span class="gm-cf ' + cc + '">' + cf + '</span></div>' +
       '<div class="gm-md">' + esc(p[4]) + (p[6] && p[6] !== p[1] && !/^another name/.test(p[6]) ? ' · ' + L('azi: ', 'today: ') + esc(p[6]) : '') + (p[7] ? ' · ' + L('există și alte identificări', 'other identifications exist') : '') + '</div>' +
       '<div class="cs-vs">' + vs.slice(0, 12).map(n => pRefBtn(n, l)).join('') + (p[9] ? '<a href="https://www.openbible.info/geo/ancient/' + p[9] + '" data-url>OpenBible ↗</a>' : '') + '</div></div>'; };
-  const html = '<div class="gm-z"><button data-gz="c" class="on">' + L('Aproape', 'Close') + '</button><button data-gz="r">' + L('Regiune', 'Region') + '</button><button data-gz="w">' + L('Toată harta', 'Whole map') + '</button></div><div class="gm-box">' + geoSvg(list, 'c') + '</div>' +
+  let view = geoView(list, 'c');
+  const html = '<div class="gm-z"><button data-gz="c" class="on">' + L('Aproape', 'Close') + '</button><button data-gz="r">' + L('Regiune', 'Region') + '</button><button data-gz="w">' + L('Toată harta', 'Whole map') + '</button></div><div class="gm-wrap"><div class="gm-box">' + geoSvg(list, view) + '</div><div class="gm-zb"><button data-gzi="1" aria-label="Zoom +">+</button><button data-gzi="-1" aria-label="Zoom −">−</button></div></div>' +
     '<div class="gm-list">' + list.map(row).join('') + '</div>' +
     '<p class="cs-note">* ' + L('Coordonate: OpenBible.info, Bible Geocoding Data (CC BY 4.0), cu gradul de încredere al identificării; hartă de bază: Natural Earth (domeniu public; coastele și râurile de azi). Localizarea multor locuri antice e o identificare academică, nu o certitudine. Numele românești sunt potrivite automat după Cornilescu.', 'Coordinates: OpenBible.info Bible Geocoding Data (CC BY 4.0) with identification confidence; base map: Natural Earth (public domain; modern coasts and rivers). Many ancient sites are scholarly identifications, not certainties.') + '</p>';
   ctxOverlay(title, html, ov => {
     const box = ov.querySelector('.gm-box');
+    const redraw = () => { const on = ov.querySelector('.gm-m.on'); box.innerHTML = geoSvg(list, view); if (on) hl(on.dataset.gi); };
+    const B = GEOBASE;
+    const zoom = (f, fx, fy) => { const nw = Math.max(25, Math.min(B.w * 1.2, view[2] * f)), nf = nw / view[2]; const cx = view[0] + view[2] * fx, cy = view[1] + view[3] * fy; view = [cx - (cx - view[0]) * nf, cy - (cy - view[1]) * nf, view[2] * nf, view[3] * nf]; ov.querySelectorAll('[data-gz]').forEach(b => b.classList.remove('on')); };
+    const setVB = () => { const sv = box.querySelector('svg'); if (sv) sv.setAttribute('viewBox', view.map(v => v.toFixed(1)).join(' ')); };
+    let pts = new Map(), g0 = null, moved = false, rt = 0;
+    const later = () => { clearTimeout(rt); rt = setTimeout(redraw, 180); };
+    box.style.touchAction = 'none';
+    box.addEventListener('pointerdown', e => { pts.set(e.pointerId, [e.clientX, e.clientY]); g0 = null; moved = false; });
+    box.addEventListener('pointermove', e => {
+      if (!pts.has(e.pointerId)) return; const prev = pts.get(e.pointerId); pts.set(e.pointerId, [e.clientX, e.clientY]);
+      const r = box.getBoundingClientRect(), k = view[2] / r.width;
+      if (pts.size === 1) { const dx = e.clientX - prev[0], dy = e.clientY - prev[1]; if (Math.abs(dx) + Math.abs(dy) > 0) { if (Math.abs(dx) + Math.abs(dy) > 2) moved = true; view = [view[0] - dx * k, view[1] - dy * k, view[2], view[3]]; setVB(); later(); } }
+      else if (pts.size === 2) { const [a, b] = [...pts.values()]; const d = Math.hypot(a[0] - b[0], a[1] - b[1]), mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2; if (g0) { zoom(g0 / d, (mx - r.left) / r.width, (my - r.top) / r.height); setVB(); later(); } g0 = d; moved = true; }
+    });
+    const up = e => { pts.delete(e.pointerId); g0 = null; };
+    box.addEventListener('pointerup', up); box.addEventListener('pointercancel', up);
+    box.addEventListener('wheel', e => { e.preventDefault(); const r = box.getBoundingClientRect(); zoom(e.deltaY < 0 ? 1 / 1.2 : 1.2, (e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height); setVB(); later(); }, { passive: false });
     const hl = gi => { ov.querySelectorAll('.gm-it.on,.gm-m.on').forEach(x => x.classList.remove('on')); ov.querySelectorAll('[data-gi="' + gi + '"]').forEach(x => x.classList.add('on')); };
     ov.querySelector('.ctx-bd').addEventListener('click', e => {
-      const z = e.target.closest('[data-gz]'); if (z) { ov.querySelectorAll('[data-gz]').forEach(b => b.classList.toggle('on', b === z)); box.innerHTML = geoSvg(list, z.dataset.gz); hap(0); return; }
+      const z = e.target.closest('[data-gz]'); if (z) { ov.querySelectorAll('[data-gz]').forEach(b => b.classList.toggle('on', b === z)); view = geoView(list, z.dataset.gz); redraw(); hap(0); return; }
+      const zi = e.target.closest('[data-gzi]'); if (zi) { zoom(+zi.dataset.gzi > 0 ? 1 / 1.6 : 1.6, .5, .5); redraw(); hap(0); return; }
+      if (moved && box.contains(e.target)) { moved = false; return; } moved = false;
       const v = e.target.closest('.cs-v'); if (v) { e.stopPropagation(); const g = +v.dataset.g; ov.remove(); if (document.getElementById('study')) stPreview(g, 0); else openVerse(g, true); return; }
       const m = e.target.closest('.gm-m'); if (m) { const gi = m.dataset.gi; hl(gi); const it = ov.querySelector('.gm-it[data-gi="' + gi + '"]'); if (it) it.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); return; }
       const it = e.target.closest('.gm-it'); if (it && !e.target.closest('a')) { hl(it.dataset.gi); box.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
     });
   });
+}
+/* ===== Cronologie biblică (grafic cu zoom și căutare) ===== */
+let chronCbs = null;
+function loadChron(cb) {
+  if (window.CHRON) { cb && cb(); return; }
+  if (chronCbs) { cb && chronCbs.push(cb); return; }
+  chronCbs = cb ? [cb] : []; const sc = document.createElement('script'); sc.src = 'chron.js';
+  sc.onload = () => { Object.assign(window.CTX_SRC = window.CTX_SRC || {}, CHRON.src); const c = chronCbs; chronCbs = null; c.forEach(f => f()); };
+  sc.onerror = () => { chronCbs = null; };
+  document.head.appendChild(sc);
+}
+const CR = { mode: 'm', late: false, sc: 1.2, sel: null };
+const BOOKY = [-2000, -1446, -1445, -1430, -1406, -1400, -1200, -1100, -1050, -1000, -950, -800, -1000, -850, -458, -445, -479, -1900, -1000, -950, -950, -950, -720, -600, -586, -590, -560, -750, -800, -760, -586, -780, -720, -650, -605, -630, -520, -520, -430, 28, 28, 28, 28, 45, 57, 55, 56, 49, 61, 61, 61, 51, 51, 63, 66, 63, 61, 66, 48, 64, 66, 90, 90, 90, 70, 95];
+function crAdj(y) { if (!CR.late || CR.mode !== 'm') return y; if (y < -1446) return y + 186; if (y < -1050) return -1260 + (y + 1446) * (210 / 396); return y; }
+function crYear(y) { if (CR.mode === 'g') return L('anul ', 'year ') + Math.round(y) + L(' al lumii', ' AM'); y = Math.round(y); return y < 0 ? -y + L(' î.Hr.', ' BC') : y + L(' d.Hr.', ' AD'); }
+function crItems() { return CR.mode === 'g' ? CHRON.gi : CHRON.it; }
+const CR_G = { E: ['Evenimente', 'Events'], P: ['Patriarhi, conducători, judecători', 'Patriarchs, leaders, judges'], U: ['Regatul unit', 'United kingdom'], J: ['Împărații lui Iuda', 'Kings of Judah'], I: ['Împărații lui Israel', 'Kings of Israel'], R: ['Prooroci', 'Prophets'], X: ['Imperii și conducători străini', 'Empires and foreign rulers'], N: ['Noul Testament', 'New Testament'] };
+const CR_CAT = { A: ['confirmat de surse externe', 'confirmed by outside sources'], B: ['calculat din textul biblic', 'calculated from the biblical text'], C: ['reconstrucție academică', 'scholarly reconstruction'], D: ['aproximare / ipoteză', 'approximation / hypothesis'], E: ['disputat / necunoscut', 'disputed / unknown'] };
+function crRange() { return CR.mode === 'g' ? [-60, 2230] : [-2250, 120]; }
+function crX(y) { return 120 + (y - crRange()[0]) * CR.sc; }
+function crRender() {
+  const box = $('#crIn'), ax = $('#crAxIn'); if (!box) return;
+  const [Y0, Y1] = crRange(), W = crX(Y1) + Math.max(40, (($('#crSc') || {}).clientWidth || 400) / 2), l = stLang();
+  // axis
+  const st = CR.sc > 6 ? 10 : CR.sc > 2.5 ? 25 : CR.sc > 1 ? 50 : CR.sc > .45 ? 100 : 200;
+  let a = '';
+  const eras = CR.mode === 'g' ? CHRON.geras : CHRON.eras;
+  eras.forEach(([n, p, s, e], k) => { const x0 = crX(crAdj(s)), x1 = crX(crAdj(e)); a += '<button class="cr-era e' + (k % 4) + '" data-era="' + k + '" style="left:' + x0.toFixed(1) + 'px;width:' + Math.max(2, x1 - x0).toFixed(1) + 'px"><span>' + esc(n) + '</span></button>'; });
+  for (let y = Math.ceil(Y0 / st) * st; y <= Y1; y += st) a += '<i class="cr-t" style="left:' + crX(y).toFixed(1) + 'px"><b>' + (CR.mode === 'g' ? y : y < 0 ? -y : y === 0 ? '0' : y) + '</b></i>';
+  if (CR.mode === 'm') a += '<i class="cr-bcad" style="left:' + crX(0).toFixed(1) + 'px">' + L('î.Hr. | d.Hr.', 'BC | AD') + '</i>';
+  ax.style.width = W + 'px'; ax.innerHTML = a;
+  // groups
+  const its = crItems(), order = CR.mode === 'g' ? ['E', 'P'] : ['E', 'P', 'U', 'J', 'I', 'R', 'X', 'N'];
+  let h = '';
+  order.forEach(gk => {
+    const lanes = [], els = [];
+    its.forEach((it, i) => {
+      if (it[5] !== gk) return;
+      const s = crAdj(it[2]), e = crAdj(it[3]), x0 = crX(s), x1 = Math.max(crX(e), x0 + (it[4] === 'e' ? 0 : 5));
+      const lw = Math.min(176, it[0].length * 6.6 + 14), ev = it[4] === 'e';
+      const inside = !ev && x1 - x0 > lw;
+      const end = (inside ? x1 : x1 + lw) + 6;
+      let ln = lanes.findIndex(v => v < x0 - 2); if (ln < 0) { ln = lanes.length; lanes.push(0); } lanes[ln] = end;
+      els.push([i, x0, x1, ln, inside, ev]);
+    });
+    if (!els.length) return;
+    h += '<div class="cr-g" style="height:' + (lanes.length * 26 + 26) + 'px;width:' + W + 'px"><div class="cr-gh">' + L(CR_G[gk][0], CR_G[gk][1]) + '</div>' +
+      els.map(([i, x0, x1, ln, inside, ev]) => { const it = its[i];
+        const cls = 'cr-i t' + it[4] + ' c' + it[6] + (it[5] === 'J' ? ' kJ' : it[5] === 'I' ? ' kI' : '') + (it[10] ? ' ca' : '') + (CR.sel === i ? ' on' : '');
+        return '<button class="' + cls + '" data-ci="' + i + '" style="top:' + (22 + ln * 26) + 'px;left:' + (ev ? x0 - 6 : x0).toFixed(1) + 'px;' + (ev ? '' : 'width:' + (x1 - x0).toFixed(1) + 'px') + '">' + (ev ? '<i class="cr-dot"></i>' : '') + '<span class="' + (inside ? 'in' : 'out') + '" title="' + esc(it[0]) + '">' + esc(it[0]) + '</span></button>'; }).join('') + '</div>';
+  });
+  box.style.width = W + 'px'; box.innerHTML = h;
+  const legend = $('#crLeg'); if (legend) legend.innerHTML = Object.keys(CR_CAT).map(k => '<span class="cr-lg c' + k + '"><i></i>' + k + ' ' + L(CR_CAT[k][0], CR_CAT[k][1]) + '</span>').join('');
+}
+function crZoomTo(ns, cx) {
+  const sc = $('#crSc'); if (!sc) return;
+  ns = Math.max(.15, Math.min(14, ns)); cx = cx == null ? sc.clientWidth / 2 : cx;
+  const yr = (sc.scrollLeft + cx - 120) / CR.sc + crRange()[0];
+  CR.sc = ns; crRender(); sc.scrollLeft = crX(yr) - cx; crSync();
+}
+function crSync() { const sc = $('#crSc'), ax = $('#crAxIn'); if (sc && ax) ax.style.transform = 'translateX(' + (-sc.scrollLeft) + 'px)'; }
+function crGoYear(y, flash) { const sc = $('#crSc'); if (!sc) return; sc.scrollTo({ left: crX(crAdj(y)) - sc.clientWidth / 2, behavior: 'smooth' }); }
+function crGoItem(i) {
+  CR.sel = i; const it = crItems()[i]; const span = Math.abs(crAdj(it[3]) - crAdj(it[2]));
+  if (span * CR.sc > $('#crSc').clientWidth * .8) CR.sc = Math.max(.15, $('#crSc').clientWidth * .6 / Math.max(span, 1));
+  crRender(); const sc = $('#crSc'); const el = sc.querySelector('[data-ci="' + i + '"]');
+  sc.scrollLeft = crX((crAdj(it[2]) + crAdj(it[3])) / 2) - sc.clientWidth / 2; crSync();
+  if (el) { sc.scrollTop = Math.max(0, el.offsetTop + el.parentNode.offsetTop - sc.clientHeight / 2); el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 1600); }
+}
+function crPersonIdx(it) {
+  if (!it[1] || !window.PEOPLE) return -1;
+  if (it._p != null) return it._p;
+  let best = -1, bs = 0;
+  PEOPLE.forEach((p, i) => { if (p.e !== it[1]) return; const pr = pRefs(p); let sc = 0;
+    it[7].forEach(r => { if (pr.indexOf(r) >= 0) sc = Math.max(sc, 3); else if (pr.some(x => Math.floor(x / 1000) === Math.floor(r / 1000))) sc = Math.max(sc, 2); else if (pr.some(x => Math.floor(x / 1e6) === Math.floor(r / 1e6) && Math.abs((x % 1e6) - (r % 1e6)) < 3000)) sc = Math.max(sc, 1); });
+    if (sc > bs || (sc === bs && sc > 0 && p.c > PEOPLE[best].c)) { bs = sc; best = i; } });
+  return (it._p = best);
+}
+function crClose() { const c = $('#chron'); if (c) c.remove(); }
+function crVerse(g) { crClose(); if (document.getElementById('study')) stPreview(g, 0); else openVerse(g, true); }
+function crCard(i) {
+  const it = crItems()[i], l = stLang(), s = crAdj(it[2]), e = crAdj(it[3]);
+  const span = it[4] === 'e' ? crYear(s) : crYear(s) + ' – ' + crYear(e);
+  const len = it[4] !== 'e' && e > s ? ' · ' + Math.round(e - s) + L(' ani', ' years') : '';
+  const pi = crPersonIdx(it);
+  let h = '<div class="cr-cd"><div class="cr-when">' + (it[10] ? 'c. ' : '') + span + len + '</div>' +
+    '<div class="cr-cat c' + it[6] + '"><i>' + it[6] + '</i>' + L(CR_CAT[it[6]][0], CR_CAT[it[6]][1]) + '</div>' +
+    (it[9] ? '<p>' + esc(it[9]) + (it[8].length ? '<sup class="cs" data-cs="' + it[8].join(',') + '">*</sup>' : '') + '</p>' : it[8].length ? '<p><sup class="cs" data-cs="' + it[8].join(',') + '">* ' + L('surse', 'sources') + '</sup></p>' : '') +
+    (CR.late && CR.mode === 'm' && it[2] < -1050 ? '<p class="cs-note">' + L('Afișat în varianta „Exod târziu” (c. 1260 î.Hr.): datele de dinainte de Saul sunt deplasate/comprimate proporțional — orientativ.', 'Shown with the late Exodus (c. 1260 BC): dates before Saul are shifted proportionally — indicative only.') + '</p>' : '') +
+    '<div class="cs-vs">' + it[7].map(n => pRefBtn(n, l)).join('') + '</div>' +
+    (pi >= 0 ? '<button class="pp-mini on" data-p="' + pi + '"><span class="pp-av">' + esc(pShort(PEOPLE[pi].n).slice(0, 1)) + '</span><span class="pp-mt"><b>' + esc(pShort(PEOPLE[pi].n)) + '</b><small>' + L('Cardul persoanei', 'Person card') + '</small></span><span class="pp-go">›</span></button>' : '') + '</div>';
+  ctxOverlay(it[0], h, ov => ov.querySelector('.ctx-bd').addEventListener('click', ev => {
+    const c = ev.target.closest('.cs'); if (c) { ev.stopPropagation(); fnPop(c, '<div class="fn-h">' + L('Surse', 'Sources') + '</div>' + c.dataset.cs.split(',').map(srcCard).join(''), bindUrls); return; }
+    const v = ev.target.closest('.cs-v'); if (v) { ev.stopPropagation(); ov.remove(); crVerse(+v.dataset.g); return; }
+    const p = ev.target.closest('[data-p]'); if (p) { ev.stopPropagation(); ov.remove(); openPerson(+p.dataset.p); }
+  }));
+}
+function crEra(k) {
+  const eras = CR.mode === 'g' ? CHRON.geras : CHRON.eras, [n, per, s, e] = eras[k];
+  loadPeople(() => {
+    const ps = per ? PEOPLE.map((p, i) => [p, i]).filter(([p]) => p.p === per && p.c).sort((a, b) => b[0].c - a[0].c) : [];
+    const h = '<div class="cr-when">' + (CR.mode === 'g' ? crYear(s) + ' – ' + crYear(e) : 'c. ' + crYear(crAdj(s)) + ' – ' + crYear(crAdj(e))) + '</div>' +
+      (ps.length ? '<p class="cs-note">' + L('Toate persoanele din această epocă (după STEPBible TIPNR), ordonate după numărul de mențiuni. Cei fără dată proprie apar aici, nu pe axă. Perioada TIPNR poate acoperi mai multe benzi.', 'All people of this era (STEPBible TIPNR), by number of mentions. Those without their own date are listed here, not on the axis.') + ' · ' + ps.length + '</p>' + ps.slice(0, 400).map(([p, i]) => pMiniI(i)).join('') + (ps.length > 400 ? '<p class="cs-note">' + L('… și încă ', '… and ') + (ps.length - 400) + L(' (folosește căutarea).', ' more (use search).') + '</p>' : '') : '<p class="cs-note">' + L('Perioadă fără personaje biblice proprii (între Testamente).', 'Intertestamental period.') + '</p>');
+    ctxOverlay(n, h, ov => ov.querySelector('.ctx-bd').addEventListener('click', ev => { const p = ev.target.closest('[data-p]'); if (p) { ev.stopPropagation(); ov.remove(); openPerson(+p.dataset.p); } }));
+  });
+}
+function crSearch(q) {
+  const out = $('#crRes'); q = q.trim().toLowerCase(); if (!q) { out.innerHTML = ''; out.classList.add('hidden'); return; }
+  const nq = s => (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  const qq = nq(q), res = [];
+  ['m', 'g'].forEach(md => (md === 'g' ? CHRON.gi : CHRON.it).forEach((it, i) => { if (nq(it[0]).includes(qq) || nq(it[1]).includes(qq)) res.push(['c', md, i, it]); }));
+  let ps = [];
+  if (window.PEOPLE) ps = PEOPLE.map((p, i) => [p, i]).filter(([p]) => p.c && (nq(p.n).includes(qq) || nq(p.e).includes(qq))).sort((a, b) => b[0].c - a[0].c).slice(0, 30);
+  out.innerHTML = (res.length ? '<div class="cr-rh">' + L('Pe axa timpului', 'On the timeline') + '</div>' + res.slice(0, 30).map(([, md, i, it]) => '<button data-rc="' + md + ':' + i + '"><b>' + esc(it[0]) + '</b><small>' + (md === 'g' ? L('Geneza 1–11 · ', 'Gen 1–11 · ') : '') + (it[10] ? 'c. ' : '') + (md === 'g' ? it[2] + ' AM' : (it[2] < 0 ? -it[2] + L(' î.Hr.', ' BC') : it[2] + L(' d.Hr.', ' AD'))) + '</small></button>').join('') : '') +
+    (ps.length ? '<div class="cr-rh">' + L('Persoane (după epocă)', 'People (by era)') + '</div>' + ps.map(([p, i]) => '<button data-rp="' + i + '"><b>' + esc(pShort(p.n)) + '</b><small>' + esc([p.p, p.r].filter(Boolean).join(' · ')) + '</small></button>').join('') : '') +
+    (!res.length && !ps.length ? '<div class="cr-rh">' + L('Nimic găsit', 'Nothing found') + '</div>' : '');
+  out.classList.remove('hidden');
+}
+function openChron(atYear) {
+  crClose();
+  loadChron(() => loadPeople(() => {
+    const el = document.createElement('div'); el.id = 'chron';
+    el.innerHTML = '<div class="cr-top"><button class="cr-ib" id="crX" aria-label="' + L('Închide', 'Close') + '">‹</button><b>' + L('Cronologie biblică', 'Biblical chronology') + '</b>' +
+      '<div class="cr-q"><input id="crQ" placeholder="' + L('Caută om sau eveniment…', 'Search person or event…') + '" autocomplete="off" enterkeyhint="search"><div class="cr-res hidden" id="crRes"></div></div></div>' +
+      '<div class="cr-bar"><div class="seg" id="crMode"><button data-m="m">' + L('Avraam → Apocalipsa', 'Abraham → Revelation') + '</button><button data-m="g">' + L('Geneza 1–11', 'Genesis 1–11') + '</button></div>' +
+      '<div class="seg" id="crEx" title="' + L('Data Exodului', 'Exodus date') + '"><button data-x="0">' + L('Exod 1446', 'Exodus 1446') + '</button><button data-x="1">' + L('Exod c.1260', 'Exodus c.1260') + '</button></div>' +
+      '</div>' +
+      '<div class="cr-ax"><div class="cr-axin" id="crAxIn"></div></div>' +
+      '<div class="cr-sc" id="crSc"><div class="cr-in" id="crIn"></div></div><div class="cr-zm"><button id="crZi" aria-label="Zoom +">+</button><button id="crZo" aria-label="Zoom −">−</button></div>' +
+      '<div class="cr-ft"><div class="cr-leg" id="crLeg"></div><span>' + L('Ciupește sau +/− pentru zoom · atinge un nume pentru detalii · atinge o epocă pentru toți oamenii ei', 'Pinch or +/− to zoom · tap a name for details · tap an era for all its people') + ' · <button class="cs" id="crSrc">* ' + L('surse și metodă', 'sources & method') + '</button></span></div>';
+    document.body.appendChild(el);
+    const sc = $('#crSc');
+    const segs = () => { el.querySelectorAll('[data-m]').forEach(b => b.classList.toggle('on', b.dataset.m === CR.mode)); el.querySelectorAll('[data-x]').forEach(b => b.classList.toggle('on', (b.dataset.x === '1') === CR.late)); $('#crEx').style.display = CR.mode === 'm' ? '' : 'none'; };
+    if (atYear != null && atYear !== 'g') CR.mode = 'm'; if (atYear === 'g') CR.mode = 'g';
+    segs(); CR.sel = null; crRender();
+    sc.scrollLeft = crX(crAdj(atYear != null && atYear !== 'g' ? atYear : CR.mode === 'g' ? 1000 : -1000)) - sc.clientWidth / 2; crSync();
+    sc.addEventListener('scroll', crSync, { passive: true });
+    $('#crX').onclick = crClose;
+    $('#crZi').onclick = () => crZoomTo(CR.sc * 1.6); $('#crZo').onclick = () => crZoomTo(CR.sc / 1.6);
+    el.querySelectorAll('[data-m]').forEach(b => b.onclick = () => { CR.mode = b.dataset.m; CR.sel = null; segs(); crRender(); sc.scrollLeft = crX(CR.mode === 'g' ? 1000 : -1000) - sc.clientWidth / 2; crSync(); hap(0); });
+    el.querySelectorAll('[data-x]').forEach(b => b.onclick = () => { const mid = (sc.scrollLeft + sc.clientWidth / 2 - 120) / CR.sc + crRange()[0]; CR.late = b.dataset.x === '1'; segs(); crRender(); sc.scrollLeft = crX(mid) - sc.clientWidth / 2; crSync(); hap(0); });
+    $('#crSrc').onclick = e => fnPop(e.currentTarget, '<div class="fn-h">' + L('Metodă', 'Method') + '</div><p class="cs-note">' + L('Datele vin din trei feluri de surse, marcate pe fiecare element: A — confirmate de documente externe (cronici asiriene și babiloniene, inscripții); B — calculate din cifrele textului biblic (vârste, ani de domnie); C — reconstrucții academice (de ex. cronologia împăraților după Thiele); D — aproximări; E — disputate. Înainte de Avraam axa e în „anii lumii”, nu în ani î.Hr. Cronologia judecătorilor și data Exodului sunt nesigure; poți compara cele două variante ale Exodului.', 'A outside evidence; B biblical numbers; C scholarly reconstruction; D approximation; E disputed.') + '</p>' + ['thiele', 'finegan', 'wood', 'hoff', 'bar_ex', 'brit_paul'].map(srcCard).join('') + '<div class="cs-card"><b>STEPBible — TIPNR</b><span>Tyndale House, Cambridge</span><small>CC BY 4.0 · ' + L('persoanele pe epoci', 'people by era') + '</small><a href="https://github.com/STEPBible/STEPBible-Data" data-url>' + L('Deschide sursa (online)', 'Open source (online)') + ' ↗</a></div>', bindUrls);
+    el.addEventListener('click', e => {
+      const ci = e.target.closest('[data-ci]'); if (ci) { CR.sel = +ci.dataset.ci; el.querySelectorAll('.cr-i.on').forEach(x => x.classList.remove('on')); ci.classList.add('on'); crCard(+ci.dataset.ci); return; }
+      const er = e.target.closest('[data-era]'); if (er) { crEra(+er.dataset.era); return; }
+      const rc = e.target.closest('[data-rc]'); if (rc) { const [md, i] = rc.dataset.rc.split(':'); if (CR.mode !== md) { CR.mode = md; segs(); } $('#crRes').classList.add('hidden'); $('#crQ').blur(); crGoItem(+i); return; }
+      const rp = e.target.closest('[data-rp]'); if (rp) { const i = +rp.dataset.rp, p = PEOPLE[i]; $('#crRes').classList.add('hidden'); $('#crQ').blur();
+        const its = CHRON.it, k = its.findIndex(it => it[1] === p.e && crPersonIdx(it) === i), kg = CHRON.gi.findIndex(it => it[1] === p.e && crPersonIdx(it) === i);
+        if (kg >= 0) { CR.mode = 'g'; segs(); crGoItem(kg); } else if (k >= 0) { CR.mode = 'm'; segs(); crGoItem(k); }
+        else { const er2 = CHRON.eras.findIndex(x => x[1] === p.p); if (p.p === 'Înainte de potop') { CR.mode = 'g'; segs(); crRender(); } else if (er2 >= 0) { CR.mode = 'm'; segs(); crRender(); crGoYear((CHRON.eras[er2][2] + CHRON.eras[er2][3]) / 2); } openPerson(i); }
+        return; }
+      if (!e.target.closest('.cr-q')) $('#crRes').classList.add('hidden');
+    });
+    const q = $('#crQ'); q.addEventListener('input', () => crSearch(q.value)); q.addEventListener('focus', () => q.value && crSearch(q.value));
+    // pinch & ctrl+wheel zoom
+    let pz = null;
+    sc.addEventListener('touchstart', e => { if (e.touches.length === 2) { const [a, b] = e.touches; const r = sc.getBoundingClientRect(); pz = { d: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY), s: CR.sc, cx: (a.clientX + b.clientX) / 2 - r.left }; } }, { passive: true });
+    sc.addEventListener('touchmove', e => { if (pz && e.touches.length === 2) { e.preventDefault(); const [a, b] = e.touches; const d = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY); const ns = pz.s * d / pz.d; if (Math.abs(ns - CR.sc) / CR.sc > .04) crZoomTo(ns, pz.cx); } }, { passive: false });
+    sc.addEventListener('touchend', e => { if (e.touches.length < 2) pz = null; });
+    sc.addEventListener('wheel', e => { if (e.ctrlKey || e.metaKey) { e.preventDefault(); const r = sc.getBoundingClientRect(); crZoomTo(CR.sc * (e.deltaY < 0 ? 1.15 : 1 / 1.15), e.clientX - r.left); } }, { passive: false });
+    hap(0);
+  }));
 }
 function openPerson(i) {
   if (!window.PEOPLE) { loadPeople(() => openPerson(i)); return; }
@@ -2118,14 +2306,16 @@ function openPerson(i) {
   h += '<p class="cs-note"><sup class="cs" data-cs="__tipnr">*</sup> ' + L('Date despre familie și mențiuni: STEPBible TIPNR (CC BY 4.0). Textul în română e scris pentru aplicație și rezumă relatarea biblică.', 'Family and mention data: STEPBible TIPNR (CC BY 4.0).') + '</p>';
   ctxOverlay(pShort(p.n), h, ov => {
     ov.querySelector('.ctx-card').classList.add('pp-card');
+    loadChron(() => { let md = 'm', k = CHRON.it.findIndex(it => it[1] === p.e && crPersonIdx(it) === i); if (k < 0) { md = 'g'; k = CHRON.gi.findIndex(it => it[1] === p.e && crPersonIdx(it) === i); }
+      if (k < 0 || !ov.isConnected) return; const b = document.createElement('button'); b.className = 'cr-go'; b.textContent = '🕰 ' + L('Vezi în cronologie', 'Show on timeline'); b.onclick = ev => { ev.stopPropagation(); ov.remove(); CR.mode = md; openChron(md === 'g' ? 'g' : CHRON.it[k][2]); setTimeout(() => crGoItem(k), 60); }; const bd = ov.querySelector('.ctx-bd'); bd.insertBefore(b, bd.firstChild); });
     ov.querySelector('.ctx-bd').addEventListener('click', e => {
       const pc = e.target.closest('[data-p]'); if (pc) { e.stopPropagation(); openPerson(+pc.dataset.p); return; }
       const c = e.target.closest('.cs');
       if (c) { e.stopPropagation(); const html = c.dataset.cs === '__tipnr' ? '<div class="fn-h">' + L('Sursa datelor', 'Data source') + '</div><div class="cs-card"><b>STEPBible — TIPNR (Translators Individualised Proper Names with all References)</b><span>STEPBible.org / Tyndale House, Cambridge</span><small>CC BY 4.0 · ' + L('date structurate', 'structured data') + '</small><a href="https://github.com/STEPBible/STEPBible-Data" data-url>' + L('Deschide sursa (online)', 'Open source (online)') + ' ↗</a></div>' : '<div class="fn-h">' + L('Sursa', 'Source') + '</div>' + c.dataset.cs.split(',').map(srcCard).join(''); fnPop(c, html, bindUrls); return; }
-      const v = e.target.closest('.cs-v'); if (v) { e.stopPropagation(); const g = +v.dataset.g; ov.remove(); if (document.getElementById('study')) stPreview(g, 0); else openVerse(g, true); return; }
+      const v = e.target.closest('.cs-v'); if (v) { e.stopPropagation(); const g = +v.dataset.g; ov.remove(); crVerse(g); return; }
       const xb = e.target.closest('[data-cx]'); if (!xb) return; e.stopPropagation();
       if (xb.dataset.cx === 'src') fnPop(xb, '<div class="fn-h">' + L('Surse', 'Sources') + '</div>' + used.map((id, k) => '<div class="cs-n">' + (k + 1) + '</div>' + srcCard(id)).join(''), bindUrls);
-      else { const gs = pRefs(p).map(pDecG).filter(g => g != null); fnPop(xb, '<div class="fn-h">' + L('Mențiuni', 'Mentions') + ' · ' + gs.length + '</div>' + gs.slice(0, 120).map(g => '<button class="fn-r" data-g="' + g + '"><b>' + esc(slabel(g, l)) + '</b><span>' + esc(txt(g, l).slice(0, 80)) + '…</span></button>').join(''), pop => pop.querySelectorAll('.fn-r').forEach(b => b.onclick = () => { const g = +b.dataset.g; ov.remove(); pop.remove(); if (document.getElementById('study')) stPreview(g, 0); else openVerse(g, true); })); }
+      else { const gs = pRefs(p).map(pDecG).filter(g => g != null); fnPop(xb, '<div class="fn-h">' + L('Mențiuni', 'Mentions') + ' · ' + gs.length + '</div>' + gs.slice(0, 120).map(g => '<button class="fn-r" data-g="' + g + '"><b>' + esc(slabel(g, l)) + '</b><span>' + esc(txt(g, l).slice(0, 80)) + '…</span></button>').join(''), pop => pop.querySelectorAll('.fn-r').forEach(b => b.onclick = () => { const g = +b.dataset.g; ov.remove(); pop.remove(); crVerse(g); })); }
     });
   });
 }
@@ -2139,6 +2329,7 @@ function stRenderBible() {
   if (STUDY.hist && STUDY.hist.length) { const bg = STUDY.hist[STUDY.hist.length - 1]; $('#stVerses').insertAdjacentHTML('afterbegin', '<button class="st-backbar" data-back="1">' + I.back + '<span>' + L('Înapoi la ', 'Back to ') + esc(label(bg, l)) + '</span></button>'); }
   const box = $('#stVerses'); box.scrollTop = 0;
   const g0 = STUDY.g; loadPeople(() => { if (STUDY.g !== g0) return; const row = box.querySelector('.st-ctx'); const ps = peopleInChapter(r.b, r.c); if (row && ps.length && !row.querySelector('[data-ppl]')) row.insertAdjacentHTML('beforeend', '<button class="ctx-chip ghost" data-ppl="1">👤 ' + L('Persoane', 'People') + ' <small>' + ps.length + '</small></button>'); });
+  loadChron(() => { if (STUDY.g !== g0) return; const row = box.querySelector('.st-ctx'); if (row && !row.querySelector('[data-chron]')) row.insertAdjacentHTML('beforeend', '<button class="ctx-chip ghost" data-chron="1">🕰 ' + L('Cronologie', 'Timeline') + '</button>'); });
   loadGeo(() => { if (STUDY.g !== g0) return; const row = box.querySelector('.st-ctx'); const ps = placesInChapter(r.b, r.c); if (row && ps.length && !row.querySelector('[data-pmap]')) row.insertAdjacentHTML('beforeend', '<button class="ctx-chip ghost" data-pmap="1">📍 ' + L('Locuri și hartă', 'Places & map') + ' <small>' + ps.length + '</small></button>'); });
   if (r.v > 0) { const t = box.querySelector('[data-g="' + STUDY.g + '"]'); if (t) setTimeout(() => { box.scrollTop = t.offsetTop - (STUDY.hist && STUDY.hist.length ? 120 : 60); t.classList.add('flash'); }, 30); }
   box.onclick = e => {
@@ -2147,6 +2338,7 @@ function stRenderBible() {
     const cx = e.target.closest('[data-ctx]'); if (cx) { openCtx(cx.dataset.ctx); return; }
     if (e.target.closest('[data-ctxs]')) { const rr = ref(STUDY.g); openCtxSearch(rr.b, rr.c); return; }
     const pc = e.target.closest('[data-ppl]'); if (pc) { const rr = ref(STUDY.g); const ps = peopleInChapter(rr.b, rr.c); fnPop(pc, '<div class="fn-h">' + L('Persoane în ', 'People in ') + esc(BK[l][rr.b] + ' ' + (rr.c + 1)) + ' · ' + ps.length + '</div>' + ps.map(([i, n]) => pMiniI(i, n + L(' aici', ' here'))).join(''), pop => pop.querySelectorAll('[data-p]').forEach(b => b.onclick = () => { pop.remove(); openPerson(+b.dataset.p); })); return; }
+    if (e.target.closest('[data-chron]')) { const rr = ref(STUDY.g); openChron(rr.b === 0 && rr.c < 11 ? 'g' : BOOKY[rr.b]); return; }
     if (e.target.closest('[data-pmap]')) { const rr = ref(STUDY.g); openMap(placesInChapter(rr.b, rr.c), L('Locuri · ', 'Places · ') + BK[l][rr.b] + ' ' + (rr.c + 1)); return; }
     const pm = e.target.closest('.pp-mini[data-p]'); if (pm) { e.stopPropagation(); openPerson(+pm.dataset.p); return; }
     const ac = e.target.closest('[data-va]'); if (ac) {
@@ -2531,6 +2723,7 @@ function stNewSheet() {
 function stMore() {
   const z = S.noteZoom || 1;
   const h = '<div class="row"><span>' + L('Mărimea foii', 'Sheet text size') + '</span><div class="seg">' + [[0.85, 'S'], [1, 'M'], [1.2, 'L'], [1.45, 'XL']].map(([v, t]) => '<button data-z="' + v + '" class="' + (Math.abs(z - v) < .01 ? 'on' : '') + '">' + t + '</button>').join('') + '</div></div>' +
+    '<button class="mitem" id="stChron">🕰 ' + L('Cronologie biblică', 'Biblical chronology') + '<small>›</small></button>' +
     '<button class="mitem" id="stTpl">' + I.plus + L('Foaie nouă din model', 'New sheet from template') + '<small>›</small></button>' +
     '<button class="mitem" id="stShare">' + I.share + L('Distribuie foaia', 'Share sheet') + '</button>' +
     '<button class="mitem" id="stCopy">' + I.book + L('Copiază textul foii', 'Copy sheet text') + '</button>' +
@@ -2539,6 +2732,7 @@ function stMore() {
   openSheet(L('Foaia de studiu', 'Study sheet'), h, body => {
     body.querySelectorAll('[data-z]').forEach(b => b.onclick = () => { S.noteZoom = +b.dataset.z; persist(); $('#stDoc').style.fontSize = Math.round(17 * S.fs * S.noteZoom) + 'px'; body.querySelectorAll('[data-z]').forEach(x => x.classList.toggle('on', x === b)); });
     body.querySelector('#stTpl').onclick = () => stNewSheet();
+    body.querySelector('#stChron').onclick = () => { closeSheet(); const rr = ref(STUDY.g); openChron(rr.b === 0 && rr.c < 11 ? 'g' : BOOKY[rr.b]); };
     const text = () => { stSave(true); const d = $('#stDoc'); return d.innerText.replace(/⠿/g, '').replace(/\n{3,}/g, '\n\n').trim(); };
     body.querySelector('#stShare').onclick = () => { const t = text(); if (A && A.share) A.share(t); else if (navigator.share) navigator.share({ text: t }).catch(() => {}); else { try { clipCopy(t); toast(T('Copiat')); } catch (e) {} } };
     body.querySelector('#stCopy').onclick = () => { const t = text(); try { A && A.copyText ? A.copyText(t) : clipCopy(t); } catch (e) {} toast(T('Copiat')); };
@@ -2686,7 +2880,7 @@ window.addEventListener('resize', () => { if (STUDY.open) { $('#study').classNam
 updateTopicTab(); setMode('read'); window.__ready = true; try { stAutoStart(); } catch (e) {}
 if (WEB && 'serviceWorker' in navigator && location.protocol === 'https:') { try { navigator.serviceWorker.register('sw.js').catch(() => {}); } catch (e) {} }
 if (WEB && IOS && !STANDALONE && !S.instHint) { S.instHint = 1; persist(); setTimeout(() => toast(UI_EN ? 'Tip: ☰ → Install on iPhone' : 'Sfat: ☰ → Instalează pe iPhone'), 2500); }
-window.__t = { openPerson, openMap, loadGeo, placesInChapter, loadPeople, openCtx, placeCard, stNavGo: g => { STUDY.g = g; STUDY.sel = []; stRenderBible(); }, G, stStrongPv, openWord, openStudy, closeStudy, stInsert, closeSheet, closePlans, openPlanDetail, openVerse, openWord, requestA11y }; window.__dbg = () => ({ mode, fy: FY.i, n: FY.items.length, pl: PL.i, wl: wheelLock - Date.now() }); syncGate(); try { A && A.ready && A.ready(); } catch (e) {}
+window.__t = { openChron, crZoomTo, openPerson, openMap, loadGeo, placesInChapter, loadPeople, openCtx, placeCard, stNavGo: g => { STUDY.g = g; STUDY.sel = []; stRenderBible(); }, G, stStrongPv, openWord, openStudy, closeStudy, stInsert, closeSheet, closePlans, openPlanDetail, openVerse, openWord, requestA11y }; window.__dbg = () => ({ mode, fy: FY.i, n: FY.items.length, pl: PL.i, wl: wheelLock - Date.now() }); syncGate(); try { A && A.ready && A.ready(); } catch (e) {}
 setTimeout(() => loadLex(), 2500);
 })();
 
