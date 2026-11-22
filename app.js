@@ -2182,7 +2182,11 @@ function crZoomTo(ns, cx) {
   const yr = (sc.scrollLeft + cx - 120) / CR.sc + crRange()[0];
   CR.sc = ns; crRender(); sc.scrollLeft = crX(yr) - cx; crSync();
 }
-function crSync() { const sc = $('#crSc'), ax = $('#crAxIn'); if (sc && ax) ax.style.transform = 'translateX(' + (-sc.scrollLeft) + 'px)'; }
+function crSync() {
+  const sc = $('#crSc'), ax = $('#crAxIn'); if (!sc || !ax) return;
+  const L0 = sc.scrollLeft; ax.style.transform = 'translateX(' + (-L0) + 'px)';
+  ax.querySelectorAll('.cr-era').forEach(e => { const sp = e.firstChild; if (!sp) return; const x = e.offsetLeft, w = e.offsetWidth, sw = sp.offsetWidth + 12; const d = Math.max(0, Math.min(L0 - x, w - sw)); sp.style.transform = d ? 'translateX(' + d + 'px)' : ''; });
+}
 function crGoYear(y, flash) { const sc = $('#crSc'); if (!sc) return; sc.scrollTo({ left: crX(crAdj(y)) - sc.clientWidth / 2, behavior: 'smooth' }); }
 function crGoItem(i) {
   CR.sel = i; const it = crItems()[i]; const span = Math.abs(crA(it, it[3]) - crA(it, it[2]));
