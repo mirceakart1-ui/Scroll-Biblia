@@ -934,3 +934,26 @@ html.day .cr-grid i{border-left-color:rgba(0,0,0,.18)}html.day .cr-grid i.m{bord
 .cr-i.kW.ts{background:rgba(120,210,140,.13)}
 .cr-i span.in{position:sticky;left:8px;display:inline-block;max-width:100%;box-sizing:border-box}
 .cr-era span{position:relative;left:0;display:inline-block;will-change:transform}
+.gm-z2{margin-top:-2px}
+.gt{stroke:none}
+.gt-d{fill:rgba(214,178,94,.32)}.gt-m{fill:rgba(150,110,80,.38)}.gt-p{fill:rgba(190,150,110,.25)}.gt-f{fill:rgba(110,170,90,.35)}
+.gpd{fill:rgba(240,205,120,.55)}.gpm{fill:none;stroke:rgba(205,160,120,.75)}.gpp{stroke:rgba(210,175,130,.45)}
+html.day .gt-d{fill:rgba(225,190,110,.35)}html.day .gt-m{fill:rgba(160,120,85,.3)}html.day .gt-f{fill:rgba(110,170,90,.3)}html.day .gpd{fill:rgba(190,150,70,.6)}html.day .gpm{stroke:rgba(130,90,60,.7)}
+.gm-tl{fill:rgba(235,220,190,.75);font-style:italic;font-family:system-ui,sans-serif;paint-order:stroke;stroke:rgba(20,18,15,.6);pointer-events:none;text-anchor:middle}
+html.day .gm-tl{fill:rgba(90,70,40,.8);stroke:rgba(255,255,255,.7)}
+.gm-rt{fill:none;stroke-linecap:round;stroke-linejoin:round;opacity:.95}
+.gm-rs{stroke:#111;stroke-width:1;vector-effect:non-scaling-stroke}
+.gm-mo{fill:#fff;text-anchor:middle;pointer-events:none;font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif}
+.gm-mo.pr{opacity:.45}
+.gm-rl2{font-weight:500}
+.gm-leg .gm-lg{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:12px;opacity:.85;margin-top:8px}
+.gm-lg i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:5px;vertical-align:-2px}
+.gm-lg i.gt-d{background:#c9a75a}.gm-lg i.gt-m{background:#8f6a4f}.gm-lg i.gt-p{background:#b59372}.gm-lg i.gt-f{background:#6aa35a}
+.gm-lg .pr{opacity:.6;font-style:italic}
+.gm-rc{border-left:4px solid;border-radius:10px;background:rgba(127,127,127,.08);padding:8px 10px;margin-top:10px}
+.gm-rc .gm-ih b{font-size:15px}.gm-rc .cr-cat{margin:0 0 0 auto;font-size:11px}
+.gm-steps{display:flex;flex-wrap:wrap;align-items:center;gap:4px;margin-top:6px}
+.gm-st{font-size:12.5px;padding:3px 8px;border-radius:999px;border:.5px solid rgba(127,127,127,.35);background:transparent;color:inherit;font-family:inherit}
+.gm-st-m{font-size:15px}.gm-st-m.pr{opacity:.45}
+.gm-rch b i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px}
+.gm-rch.on{background:rgba(255,209,102,.12)}
