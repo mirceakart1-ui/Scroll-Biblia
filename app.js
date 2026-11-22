@@ -698,15 +698,23 @@ let readCount = 0; for (let i = 0; i < BITS.length; i++) { let x = BITS[i]; whil
 const hasRead = g => (BITS[g >> 3] >> (g & 7)) & 1;
 function saveBits() { let bin = ''; for (let i = 0; i < BITS.length; i += 4096) bin += String.fromCharCode.apply(null, BITS.subarray(i, i + 4096)); S.bits = btoa(bin); }
 let todaySet = new Set(S.todayKey === today() ? (S.todaySeen || []) : []);
-function onShown() {
-  const it = itemAt(cur()); if (!it) return;
-  const g = it.g, t = today();
+// un verset se socotește citit doar după ce a stat minimum 3 secunde pe ecran
+const READ_MS = 3000; let readTimer = 0;
+function countRead(g) {
+  const t = today();
   if (S.todayKey !== t) { S.todayKey = t; S.todaySeen = []; todaySet = new Set(); }
   if (!todaySet.has(g)) { todaySet.add(g); S.todaySeen.push(g); S.days[t] = (S.days[t] || 0) + 1; S.total = (S.total || 0) + 1; if (S.days[t] === 1) { try { A && A.readToday && A.readToday(t, streak()); } catch (e) {} remLearn('read'); } }
   if (!hasRead(g)) { BITS[g >> 3] |= 1 << (g & 7); readCount++; saveBits(); }
-  if (mode === 'foryou') markRecent(g); else if (mode === T('plan')) { planState(S.plan).pos = it.pix; } else S.readPos = g;
   if (S.plan) { const d = planMark(S.plan, g); const pd = planData(S.plan), st = planState(S.plan); if (d >= 0 && !st.done[d] && dayStat(pd, st, d).done) { st.done[d] = 1; toast(T('✓ Ziua ') + (d + 1) + T(' din plan terminată!')); haptic(); } }
-  persist(); updateStats(); if (GT) gateTick();
+  persist(); updateStats();
+}
+function onShown() {
+  const it = itemAt(cur()); if (!it) return;
+  const g = it.g, k = cur(), m = mode;
+  clearTimeout(readTimer);
+  readTimer = setTimeout(() => { if (cur() === k && mode === m && !document.hidden) countRead(g); }, READ_MS);
+  if (mode === 'foryou') markRecent(g); else if (mode === T('plan')) { planState(S.plan).pos = it.pix; } else S.readPos = g;
+  persist(); if (GT) gateTick();
   if (TTS.on && TTS.g !== g) ttsSpeakCur();
   if (NARR.on && mode === 'read') narrUserMoved(g);
 }
@@ -785,7 +793,7 @@ function openStats(range) {
   for (const k in S.days) ws[new Date(k + 'T12:00:00').getDay()] += S.days[k];
   const wmx = Math.max(1, ...ws);
   let h = '<div class="menu-stats"><div class="stat"><b>' + streak() + T('</b><span>zile la rând</span></div><div class="stat"><b>') + bestStreak() + T('</b><span>record zile</span></div><div class="stat"><b>') + (S.days[today()] || 0) + T('</b><span>versete azi</span></div></div>');
-  h += '<div class="pcard">' + donut(pct(readCount, TOTAL), 132, T('din Biblie')) + '<div class="pside"><div class="big">' + readCount.toLocaleString('ro-RO') + '<small> / ' + TOTAL.toLocaleString('ro-RO') + T('</small></div><div class="hint" style="margin:0 0 10px">versete diferite parcurse</div>') +
+  h += '<div class="pcard">' + donut(pct(readCount, TOTAL), 132, T('din Biblie')) + '<div class="pside"><div class="big">' + readCount.toLocaleString('ro-RO') + '<small> / ' + TOTAL.toLocaleString('ro-RO') + T('</small></div><div class="hint" style="margin:0 0 10px">versete diferite parcurse</div>').replace('</div>', '<br><small>' + L('Un verset se numără după ce stai minimum 3 secunde pe el.', 'A verse counts after you stay on it for at least 3 seconds.') + '</small></div>') +
     T('<div class="tlab"><span>Vechiul Testament</span><span>') + fmtPct(pct(ot[0], ot[1])) + '</span></div><div class="tbar"><i style="width:' + pct(ot[0], ot[1]) + '%"></i></div>' +
     T('<div class="tlab"><span>Noul Testament</span><span>') + fmtPct(pct(nt[0], nt[1])) + '</span></div><div class="tbar"><i style="width:' + pct(nt[0], nt[1]) + '%"></i></div></div></div>';
   h += T('<div class="sec" style="display:flex;justify-content:space-between;align-items:center">Versete pe zi<span class="seg mini"><button data-r="7" class="') + (range === 7 ? 'on' : '') + '">7z</button><button data-r="14" class="' + (range === 14 ? 'on' : '') + '">14z</button><button data-r="30" class="' + (range === 30 ? 'on' : '') + '">30z</button></span></div>';
@@ -2936,7 +2944,7 @@ window.addEventListener('resize', () => { if (STUDY.open) { $('#study').classNam
 updateTopicTab(); setMode('read'); window.__ready = true; try { stAutoStart(); } catch (e) {}
 if (WEB && 'serviceWorker' in navigator && location.protocol === 'https:') { try { navigator.serviceWorker.register('sw.js').catch(() => {}); } catch (e) {} }
 if (WEB && IOS && !STANDALONE && !S.instHint) { S.instHint = 1; persist(); setTimeout(() => toast(UI_EN ? 'Tip: ☰ → Install on iPhone' : 'Sfat: ☰ → Instalează pe iPhone'), 2500); }
-window.__t = { openChron, crZoomTo, openPerson, openMap, loadGeo, placesInChapter, loadPeople, openCtx, placeCard, stNavGo: g => { STUDY.g = g; STUDY.sel = []; stRenderBible(); }, G, stStrongPv, openWord, openStudy, closeStudy, stInsert, closeSheet, closePlans, openPlanDetail, openVerse, openWord, requestA11y }; window.__dbg = () => ({ mode, fy: FY.i, n: FY.items.length, pl: PL.i, wl: wheelLock - Date.now() }); syncGate(); try { A && A.ready && A.ready(); } catch (e) {}
+window.__t = { rc: () => readCount, openChron, crZoomTo, openPerson, openMap, loadGeo, placesInChapter, loadPeople, openCtx, placeCard, stNavGo: g => { STUDY.g = g; STUDY.sel = []; stRenderBible(); }, G, stStrongPv, openWord, openStudy, closeStudy, stInsert, closeSheet, closePlans, openPlanDetail, openVerse, openWord, requestA11y }; window.__dbg = () => ({ mode, fy: FY.i, n: FY.items.length, pl: PL.i, wl: wheelLock - Date.now() }); syncGate(); try { A && A.ready && A.ready(); } catch (e) {}
 setTimeout(() => loadLex(), 2500);
 })();
 
