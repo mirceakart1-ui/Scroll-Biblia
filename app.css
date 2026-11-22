@@ -986,3 +986,4 @@ html.day #verWm{color:#1f1d26}
 .gn{display:flex;gap:6px;align-items:stretch;margin:8px 0}.gn-m{flex:1;text-align:left;border:0;border-radius:14px;padding:10px 12px;background:rgba(127,127,127,.12);color:inherit;font:inherit;display:flex;flex-direction:column;gap:2px}
 .gn-m b{font-size:15.5px}.gn-m span{font-size:18px;opacity:.9}.gn-m small{opacity:.6}.gn-m i{font-size:13px;opacity:.75}
 .gn-i{border:0;border-radius:12px;background:rgba(127,127,127,.12);color:inherit;font:inherit;font-size:12px;min-width:44px;padding:0 6px}
+.ref .vab{opacity:.55;font-size:.75em;letter-spacing:.04em}.vchk b small{opacity:.6}.vchk.on{background:rgba(255,209,102,.12)}

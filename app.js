@@ -1,6 +1,6 @@
 (function () {
 'use strict';
-const APP_VER = '8.0';
+const APP_VER = '8.1';
 const $ = s => document.querySelector(s);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const A = window.Android || null;
@@ -66,9 +66,10 @@ function ref(g) {
 const G = (b, c, v) => OFF[b][c] + v;
 const TAGRE = /\{([^|}]*)\|([\d.]+)\}/g;
 const rawv = (g, l) => { const r = ref(g); return BIB[l][r.b][r.c][r.v]; };
-const txt = (g, l) => l === 'en' ? rawv(g, 'en').replace(TAGRE, '$1') : rawv(g, l);
+const txt = (g, l) => { const a = altv(g, l); return a != null ? a : l === 'en' ? rawv(g, 'en').replace(TAGRE, '$1') : rawv(g, l); };
 const isNT = g => ref(g).b >= 39;
 function rich(g, l) {
+  const alt = altv(g, l); if (alt != null) return alt.split(/([\p{L}\p{M}’'\-]+)/u).map((t, i) => i % 2 ? '<span class="w">' + esc(t) + '</span>' : esc(t)).join('');
   const raw = rawv(g, l);
   if (l === 'en') {
     const P = isNT(g) ? 'G' : 'H'; let out = '', last = 0, m; TAGRE.lastIndex = 0;
@@ -637,7 +638,7 @@ const slots = [-1, 0, 1].map(() => { const el = document.createElement('div'); e
 const TABF = () => Math.min(innerWidth, innerHeight) >= 600 ? 1.4 : 1;
 function fontFor(len) { const base = len < 70 ? 25 : len < 130 ? 22 : len < 200 ? 19.5 : len < 280 ? 18 : 16.5; return Math.round(base * S.fs * TABF()) + 'px'; }
 function fillCard(el, it) {
-  const key = it ? (S.topic || '') + (NARR.on ? 'N' : '') + (TTS.on ? 'T' : '') + mode + (it.pix != null ? 'p' + it.pix : '') + it.g + S.lang + S.fs + TABF() + (it.votd ? 'v' : '') + (S.liked[it.g] ? 'L' : '') + (S.saved[it.g] ? 'S' : '') : 'none';
+  const key = it ? (S.topic || '') + (NARR.on ? 'N' : '') + (TTS.on ? 'T' : '') + mode + (it.pix != null ? 'p' + it.pix : '') + it.g + S.lang + curVer('ro') + curVer('en') + S.fs + TABF() + (it.votd ? 'v' : '') + (S.liked[it.g] ? 'L' : '') + (S.saved[it.g] ? 'S' : '') : 'none';
   if (el._key === key) return; el._key = key;
   if (!it) { el.querySelector('.content').innerHTML = ''; el.querySelector('.actions').innerHTML = ''; el.style.visibility = 'hidden'; return; }
   el.style.visibility = '';
@@ -652,7 +653,7 @@ function fillCard(el, it) {
   if (it.pday != null) { const pd = planData(S.plan); const start = pd.dayStart[it.pday] === it.pix; h += '<div class="badge plan st-' + dayStatus(S.plan, it.pday) + '">' + (start ? T('▶ Începe ') : '') + T('Ziua ') + (it.pday + 1) + T(' din ') + pd.days.length + '</div>'; }
   h += '<p class="verse" style="font-size:' + fontFor(t1.length + (S.lang === 'both' ? 60 : 0)) + '">' + rich(g, main) + '</p>';
   if (S.lang === 'both') h += '<p class="verse2" style="font-size:' + Math.round(16 * S.fs * TABF()) + 'px">' + rich(g, 'en') + '</p>';
-  h += '<div class="ref">' + esc(label(g, main)) + (S.lang === 'both' ? ' · ' + esc(label(g, 'en')) : '') + '</div>';
+  h += '<div class="ref">' + esc(label(g, main)) + ' <small class="vab">' + verAbbr(main, g) + '</small>' + (S.lang === 'both' ? ' · ' + esc(label(g, 'en')) + ' <small class="vab">' + verAbbr('en', g) + '</small>' : '') + '</div>';
   if (mode === 'read' || mode === T('plan')) { const r = ref(g); h += T('<div class="pos">Versetul ') + (r.v + 1) + T(' din ') + VC[r.b][r.c] + '</div>'; }
   const xs = xrefs(g);
   if (xs.length) h += '<div class="chips">' + xs.slice(0, 3).map(x => '<button class="chip" data-x="' + x.g + '">' + esc(xlabel(x, main)) + '</button>').join('') + (xs.length > 3 ? '<button class="chip more" data-v="' + g + '">+' + (xs.length - 3) + T(' trimiteri</button>') : '') + '</div>';
@@ -830,12 +831,15 @@ function wordTap(t) {
   w.classList.add('tap'); setTimeout(() => w.classList.remove('tap'), 400);
   const g = curG();
   const code = w.dataset.s ? (w.dataset.s.split(' ').filter(x => x !== 'H853')[0] || w.dataset.s.split(' ')[0]) : null;
-  const go = () => code ? openWord(code, false, g) : openVerse(g, false, 'words', w.textContent);
-  loadDict(err => loadNave(() => loadLex(() => { const x = !err && dMatch(g, w.textContent); if (x && (DICT_E[x.hw] || DICT_H[x.hw])) dictPop(w, x, go); else go(); })));
+  loadDict(err => loadNave(() => loadLex(() => loadAlign(() => {
+    const oc = code || (/^[A-Za-z’'\-]+$/.test(w.textContent) && S.lang !== 'ro' && curVer('en') !== 'kjv' ? enAlign(g, w.textContent) : null) || alignRo(g, w.textContent, w);
+    const go = () => oc ? openWord(oc, false, g) : openVerse(g, false, 'words', w.textContent);
+    const x = !err && dMatch(g, w.textContent); if (x && (DICT_E[x.hw] || DICT_H[x.hw])) dictPop(w, x, go, oc); else go(); }))));
 }
 let lpT = 0, lpFired = false;
 feed.addEventListener('touchstart', e => { lpFired = false; clearTimeout(lpT); if (e.target.closest('[data-act=narr]')) lpT = setTimeout(() => { lpFired = true; haptic(); WEB ? openVoicePicker() : openNarrVoices(); }, 550);
-  else if (e.target.closest('[data-act=like]')) lpT = setTimeout(() => { lpFired = true; haptic(); openSaveTo(curG()); }, 550); }, { passive: true });
+  else if (e.target.closest('[data-act=like]')) lpT = setTimeout(() => { lpFired = true; haptic(); openSaveTo(curG()); }, 550);
+  else if (e.target.closest('[data-act=lang]')) lpT = setTimeout(() => { lpFired = true; haptic(); openVersions(); }, 550); }, { passive: true });
 feed.addEventListener('touchmove', e => { const t = e.touches[0]; if (Math.abs(t.clientY - ty) > 10 || Math.abs(t.clientX - tx) > 10) clearTimeout(lpT); }, { passive: true });
 feed.addEventListener('touchstart', e => { if (e.touches.length > 1) return; ty = e.touches[0].clientY; tx = e.touches[0].clientX; tt = Date.now(); dy = 0; dx = 0; axis = ''; dragging = true; moved = false; }, { passive: true });
 feed.addEventListener('touchmove', e => {
@@ -872,7 +876,7 @@ feed.addEventListener('touchend', e => {
 let wheelLock = 0;
 feed.addEventListener('wheel', e => { const n = Date.now(); if (n < wheelLock) return; if (Math.abs(e.deltaY) > 20) { wheelLock = n + 450; go(e.deltaY > 0 ? 1 : -1); } }, { passive: true });
 feed.addEventListener('click', e => { if ('ontouchstart' in window) return; const t = e.target.closest('[data-act]'); if (t) { act(t.dataset.act, t); return; } if (tapTarget(e.target)) return; clearTimeout(tapT); const tg = e.target; tapT = setTimeout(() => wordTap(tg), 300); });
-feed.addEventListener('contextmenu', e => { if (e.target.closest('[data-act=narr]')) { e.preventDefault(); WEB ? openVoicePicker() : openNarrVoices(); } else if (e.target.closest('[data-act=like]')) { e.preventDefault(); openSaveTo(curG()); } });
+feed.addEventListener('contextmenu', e => { if (e.target.closest('[data-act=narr]')) { e.preventDefault(); WEB ? openVoicePicker() : openNarrVoices(); } else if (e.target.closest('[data-act=like]')) { e.preventDefault(); openSaveTo(curG()); } else if (e.target.closest('[data-act=lang]')) { e.preventDefault(); openVersions(); } });
 feed.addEventListener('dblclick', e => { if (!('ontouchstart' in window)) { clearTimeout(tapT); doubleLike(e.clientX, e.clientY); } });
 document.addEventListener('keydown', e => { if (!$('#sheet').classList.contains('hidden')) return; if (e.key === 'ArrowDown' || e.key === ' ') go(1); if (e.key === 'ArrowUp') go(-1); });
 window.addEventListener('resize', () => { H = window.innerHeight; try { applyTheme(); } catch (e) {} layout(0, false); });
@@ -902,7 +906,7 @@ function act(a) {
   else if (a === 'more') openMore(g);
   else if (a === 'narr') { if (NARR.on) narrStop(); else if (TTS.on) ttsStop(); else if (WEB) ttsStart(); else narrStart(g); }
   else if (a === 'tts') { if (TTS.on) ttsStop(); else ttsStart(); }
-  else if (a === 'lang') { S.lang = S.lang === 'ro' ? 'en' : S.lang === 'en' ? 'both' : 'ro'; if (S.lang === 'both' && TTS.on) ttsStop(); else if (TTS.on) { TTS.g = -1; setTimeout(ttsSpeakCur, 50); } persist(); refresh(); toast(S.lang === 'ro' ? T('Română · Cornilescu') : S.lang === 'en' ? 'English · KJV' : T('Română + English')); }
+  else if (a === 'lang') { S.lang = S.lang === 'ro' ? 'en' : S.lang === 'en' ? 'both' : 'ro'; if (S.lang === 'both' && TTS.on) ttsStop(); else if (TTS.on) { TTS.g = -1; setTimeout(ttsSpeakCur, 50); } persist(); refresh(); toast(S.lang === 'ro' ? T('Română') + ' · ' + verAbbr('ro') : S.lang === 'en' ? 'English · ' + verAbbr('en') : T('Română + English')); if (!S.verHint) { S.verHint = 1; persist(); setTimeout(() => toast(L('Ține apăsat pe butonul de limbă ca să alegi traducerea', 'Long-press the language button to choose the translation')), 1800); } }
 }
 function openMore(g) {
   const TT = TOPICS.find(t => t[0] === S.topic);
@@ -978,7 +982,7 @@ window.onAndroidBack = function () { if (STUDY.open && $('#sheet').classList.con
 
 function openChapter(g, push) {
   const r = ref(g); const l = S.lang === 'en' ? 'en' : 'ro';
-  const vs = BIB[l][r.b][r.c];
+  const vs = BIB[l][r.b][r.c].map((t, i) => txt(G(r.b, r.c, i), l));
   let h = '<button class="btn" data-go="' + g + '">' + I.book + T(' Citește de aici</button><button class="btn ghost" id="narr">') + I.headphones + T(' Ascultă cu narator</button>');
   if (r.c > 0) h += '<button class="btn ghost" data-ch="' + G(r.b, r.c - 1, 0) + T('">‹ Cap. ') + r.c + '</button>';
   if (r.c < VC[r.b].length - 1) h += '<button class="btn ghost" data-ch="' + G(r.b, r.c + 1, 0) + T('">Cap. ') + (r.c + 2) + ' ›</button>';
@@ -1213,7 +1217,7 @@ function openVerse(g, push, focus, tapped) {
   openSheet(label(g, l), h, body => {
     body.querySelectorAll('[data-x]').forEach(b => b.onclick = () => openVerse(+b.dataset.x, true));
     body.querySelectorAll('.orow').forEach(b => b.onclick = () => openWord(b.dataset.s, true, g));
-    body.querySelectorAll('.vbox .w').forEach(w => w.onclick = () => { if (w.dataset.s) openWord(w.dataset.s.split(' ')[0], true, g); else { const t = body.querySelector('#words'); t && scrollTo(body, t, false, true); } });
+    body.querySelectorAll('.vbox .w').forEach(w => w.onclick = () => { if (w.dataset.s) openWord(w.dataset.s.split(' ')[0], true, g); else loadAlign(() => { const oc = alignRo(g, w.textContent, w); if (oc) openWord(oc, true, g); else { const t = body.querySelector('#words'); t && scrollTo(body, t, false, true); } }); });
     body.querySelector('[data-go]').onclick = () => { closeSheet(); setMode('read', g); };
     body.querySelector('[data-chap]').onclick = () => openChapter(g, true);
     body.querySelector('[data-sv]').onclick = () => openSaveTo(g, true);
@@ -1368,17 +1372,18 @@ function dMatch(g, word) {
   }
   return best || dRo(list, t);
 }
-function dPlain(hw) { return (DICT_E[hw] || []).map(p => p.replace(/<a data-r[^>]*>[^<]*<\/a>/g, '').replace(/\(\s*(?:Comp\.|comp\.|See|see)?[\s,;.]*\)/g, '').replace(/\s+([,.;:])/g, '$1').replace(/\s{2,}/g, ' ')).join(' '); }
-function dictPop(anchor, x, fallback) {
+function dPlain(hw) { return (DICT_E[hw] || []).map(p => p.replace(/<a data-r[^>]*>[^<]*<\/a>/g, '').replace(/\(\s*(?:Comp\.|comp\.|See|see)?[\s,;.]*(?:etc\.)?[\s,;.]*\)/g, '').replace(/\s+([,.;:])/g, '$1').replace(/\s{2,}/g, ' ')).join(' '); }
+function dictPop(anchor, x, fallback, oc) {
   const hw = x.hw, H = DICT_H[hw], E = DICT_E[hw]; let t = E ? dPlain(hw) : ''; if (t.length > 420) t = t.slice(0, 400).replace(/\s\S*$/, '') + '…';
   fnPop(anchor, '<div class="fn-h">' + esc(hw) + ' · ' + L('Dicționar biblic', 'Bible dictionary') + '</div>' +
+    (oc && lexEntry(oc) ? '<button class="fn-r one dor" data-dorig><b><span class="' + (oc[0] === 'H' ? 'heb' : 'grk') + '">' + esc(lexEntry(oc)[0]) + '</span> · ' + esc(lexEntry(oc)[1]) + ' · ' + oc + '</b><span>' + esc(shortDef(lexEntry(oc), oc)) + '</span></button>' : '') +
     (H ? '<p class="dh"><b>' + L('Sensul numelui', 'Name meaning') + ':</b> ' + esc(H) + '</p>' : '') +
     (t ? '<p class="dtx" lang="en">' + t + '</p>' : '') +
     (E ? '<button class="fn-more" data-dfull>' + L('Articolul complet', 'Full article') + ' ›</button>' : '') +
     (naveKey(hw) ? '<button class="fn-more" data-dnave>' + L('Versete pe temă (Nave)', 'Verses on this topic (Nave)') + ' ›</button>' : '') +
-    (fallback ? '<button class="fn-more" data-dorig>' + L('Cuvântul original și versetul', 'Original word & verse') + ' ›</button>' : '') +
+    (fallback ? '<button class="fn-more" data-dorig>' + (oc ? L('Cuvântul original', 'Original word') : L('Cuvântul original și versetul', 'Original word & verse')) + ' ›</button>' : '') +
     '<small class="dsrc">Easton 1897' + (H ? ' · Hitchcock' : '') + (S.lang !== 'en' ? ' · ' + L('text original în engleză', 'English original') : '') + '</small>',
-    p => { const f = p.querySelector('[data-dfull]'); if (f) f.onclick = () => { p.remove(); openDict(hw); }; const o = p.querySelector('[data-dorig]'); if (o) o.onclick = () => { p.remove(); fallback(); }; const nv = p.querySelector('[data-dnave]'); if (nv) nv.onclick = () => { p.remove(); openNave(naveKey(hw)); }; });
+    p => { const f = p.querySelector('[data-dfull]'); if (f) f.onclick = () => { p.remove(); openDict(hw); }; p.querySelectorAll('[data-dorig]').forEach(o => o.onclick = () => { p.remove(); fallback(); }); const nv = p.querySelector('[data-dnave]'); if (nv) nv.onclick = () => { p.remove(); openNave(naveKey(hw)); }; });
 }
 function dictHtml(hw) {
   const all = []; const H = DICT_H[hw];
@@ -1479,6 +1484,55 @@ function openGodNames() {
       body.querySelectorAll('.gn-i[data-s]').forEach(b => b.onclick = () => openWord(b.dataset.s, true));
     }, sheetOpen());
   }));
+}
+/* Romanian word -> original (Hebrew/Greek) word. The Cornilescu text has no Strong tags, so the app uses an
+   association table computed from the whole Bible (Cornilescu verse vs KJV-Strong verse, Dice coefficient),
+   restricted at tap time to the original words that actually occur in that verse. */
+let alCbs = null;
+function loadAlign(cb) {
+  if (window.RO_AL) { cb && cb(); return; } if (alCbs) { cb && alCbs.push(cb); return; }
+  alCbs = cb ? [cb] : []; const sc = document.createElement('script'); sc.src = 'align.js';
+  sc.onload = () => { const c = alCbs; alCbs = null; c.forEach(f => f()); }; sc.onerror = () => { const c = alCbs; alCbs = null; c.forEach(f => f(1)); };
+  document.head.appendChild(sc);
+}
+const AL_SUF = ['urilor', 'ilor', 'ului', 'elor', 'lor', 'ați', 'ul', 'ua', 'ii', 'ei', 'le', 'ea', 'or', 'a', 'e', 'i', 'u'];
+function alStem(w) {
+  w = String(w).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/ş/g, 's').replace(/ţ/g, 't').replace(/[^a-z]/g, '');
+  if (w.length < 3) return null; for (const s of AL_SUF) if (w.endsWith(s) && w.length - s.length >= 3) return w.slice(0, -s.length); return w;
+}
+function alignRo(g, word, el) {
+  if (!window.RO_AL) return null;
+  const parts = String(word).split(/[-’']/).filter(Boolean).sort((a, b) => b.length - a.length);
+  const ws = origWords(g); if (!ws.length) return null; const inV = {}; ws.forEach((w, i) => { (inV[w.s] = inV[w.s] || []).push(i); });
+  // relative position of the tapped word in the Romanian verse
+  let rel = 0.5; if (el && el.parentNode) { const all = [...el.parentNode.querySelectorAll('.w')]; const k = all.indexOf(el); if (k >= 0 && all.length > 1) rel = k / (all.length - 1); }
+  let best = null, bs = 0;
+  for (const p of parts) { const st = alStem(p); let row = st && RO_AL[st]; for (let k = st ? st.length - 1 : 0; !row && k >= 5; k--) row = RO_AL[st.slice(0, k)]; if (!row) continue; let nul = 0;
+    row.split(';').forEach(t => { const [s, d] = t.split(':'); if (s === 'NULL') { nul = +d; return; } if (!inV[s]) return; const pos = Math.min(...inV[s].map(i => Math.abs(i / Math.max(1, ws.length - 1) - rel)));
+      const sc = (+d) * (1.2 - 0.4 * pos); if (sc > bs) { bs = sc; best = s; } });
+    if (best && bs < nul) best = null;
+    if (best) break; }
+  return best;
+}
+/* Bible versions: the base texts (Cornilescu 1924, KJV with Strong numbers) stay loaded for analysis
+   (original words, dictionary, alignment); an alternative version only changes what is displayed. */
+const VERS = { ro: [['vdc', 'Cornilescu 1924', 'VDC', 'Dumitru Cornilescu, 1924 · domeniu public'], ['btf', 'Traducerea Fidela', 'BTF', 'Alex Crișan · domeniu public (eBible.org)'], ['lsb', 'Liber Sfânta Biblie', 'LSB', 'doar Noul Testament, ciornă în revizuire · domeniu public (eBible.org)']],
+  en: [['kjv', 'King James Version', 'KJV', '1611/1769 · Strong · public domain'], ['web', 'World English Bible', 'WEB', 'modern English · public domain (eBible.org)'], ['bsb', 'Berean Standard Bible', 'BSB', 'modern English · public domain since 2023 (eBible.org)']] };
+const VVAR = { btf: 'BIBLE_RO_BTF', lsb: 'BIBLE_RO_LSB', web: 'BIBLE_EN_WEB', bsb: 'BIBLE_EN_BSB' };
+function curVer(l) { const v = (S.ver || {})[l]; return v && VVAR[v] && window[VVAR[v]] ? v : (l === 'en' ? 'kjv' : 'vdc'); }
+function verAbbr(l, g) { const v = curVer(l); if (g != null && VVAR[v] && altv(g, l) == null) return (VERS[l][0][2]); return VERS[l].find(x => x[0] === v)[2]; }
+function altv(g, l) { const v = curVer(l); if (!VVAR[v]) return null; const r = ref(g); const t = window[VVAR[v]][r.b] && window[VVAR[v]][r.b][r.c] && window[VVAR[v]][r.b][r.c][r.v]; return t || null; }
+function loadVer(v, cb) { if (!VVAR[v] || window[VVAR[v]]) { cb && cb(); return; } toast(L('Se încarcă traducerea…', 'Loading translation…')); const sc = document.createElement('script'); sc.src = 'v_' + v + '.js'; sc.onload = () => cb && cb(); sc.onerror = () => toast(L('Traducerea nu s-a putut încărca', 'Translation failed to load')); document.head.appendChild(sc); }
+function openVersions() {
+  const grp = l => '<div class="sec">' + (l === 'ro' ? '🇷🇴 ' + L('Română', 'Romanian') : '🇬🇧 English') + '</div>' + VERS[l].map(([k, n, a, d]) => '<button class="mitem vchk' + (curVer(l) === k ? ' on' : '') + '" data-vl="' + l + '" data-vk="' + k + '"><b>' + (curVer(l) === k ? '✓ ' : '') + esc(n) + ' <small>' + a + '</small></b><small>' + esc(d) + '</small></button>').join('');
+  openSheet(L('Traducerea Bibliei', 'Bible translation'), grp('ro') + grp('en') + '<p class="hint">' + L('Atingerea cuvintelor, dicționarul și cuvintele originale folosesc în continuare Cornilescu și KJV (cu numere Strong) în fundal. Unde o traducere nu are un verset (ex. LSB în Vechiul Testament), se arată Cornilescu sau KJV.', 'Word taps, dictionary and original words still use Cornilescu and KJV (Strong) in the background.') + '</p><p class="hint">' + L('NTR (Noua Traducere Românească) nu poate fi inclusă: are drepturi de autor (Biblica).', 'NTR is copyrighted (Biblica).') + '</p>', body => {
+    body.querySelectorAll('[data-vk]').forEach(b => b.onclick = () => { const l = b.dataset.vl, k = b.dataset.vk; loadVer(k, () => { S.ver = Object.assign({}, S.ver || {}, { [l]: k }); if (S.lang !== 'both' && S.lang !== l) S.lang = l; persist(); refresh(); closeSheet(); toast((l === 'ro' ? '🇷🇴 ' : '🇬🇧 ') + VERS[l].find(x => x[0] === k)[1]); }); });
+  }, sheetOpen());
+}
+function enAlign(g, word) {
+  const w = String(word).toLowerCase().replace(/[^a-z]/g, ''); if (w.length < 3) return null; const P = isNT(g) ? 'G' : 'H'; const lw = dLemma(w) || w; let m; TAGRE.lastIndex = 0; const raw = rawv(g, 'en');
+  while ((m = TAGRE.exec(raw))) { for (const x of m[1].toLowerCase().split(/\s+/)) { const y = x.replace(/[^a-z]/g, ''); if (y === w || (y.length >= 4 && w.length >= 4 && y.slice(0, 5) === w.slice(0, 5)) || (dLemma(y) && dLemma(y) === lw)) { const n = m[2].split('.').filter(z => z !== '853')[0]; if (n) return P + n; } } }
+  return null;
 }
 function openWord(code, push, fromG) {
   if (!window.LEX_H) { loadLex(() => openWord(code, push, fromG)); return; }
@@ -3133,7 +3187,8 @@ updateTopicTab(); setMode('read'); window.__ready = true; try { stAutoStart(); }
 if (WEB && 'serviceWorker' in navigator && location.protocol === 'https:') { try { navigator.serviceWorker.register('sw.js').catch(() => {}); } catch (e) {} }
 if (WEB && IOS && !STANDALONE && !S.instHint) { S.instHint = 1; persist(); setTimeout(() => toast(UI_EN ? 'Tip: ☰ → Install on iPhone' : 'Sfat: ☰ → Instalează pe iPhone'), 2500); }
 try { const wm = document.createElement('div'); wm.id = 'verWm'; wm.textContent = 'V' + APP_VER; document.body.appendChild(wm); } catch (e) {}
-window.__t = { rc: () => readCount, openNave, openGodNames, loadNave, openDict, openDictSearch, dMatch, dVerse, loadDict, openChron, crZoomTo, openPerson, openMap, loadGeo, placesInChapter, loadPeople, openCtx, placeCard, stNavGo: g => { STUDY.g = g; STUDY.sel = []; stRenderBible(); }, G, stStrongPv, openWord, openStudy, closeStudy, stInsert, closeSheet, closePlans, openPlanDetail, openVerse, openWord, requestA11y }; window.__dbg = () => ({ mode, fy: FY.i, n: FY.items.length, pl: PL.i, wl: wheelLock - Date.now() }); syncGate(); try { A && A.ready && A.ready(); } catch (e) {}
+['ro', 'en'].forEach(l => { const v = (S.ver || {})[l]; if (v && VVAR[v]) loadVer(v, () => refresh()); });
+window.__t = { rc: () => readCount, openVersions, curVer, alignRo, loadAlign, openNave, openGodNames, loadNave, openDict, openDictSearch, dMatch, dVerse, loadDict, openChron, crZoomTo, openPerson, openMap, loadGeo, placesInChapter, loadPeople, openCtx, placeCard, stNavGo: g => { STUDY.g = g; STUDY.sel = []; stRenderBible(); }, G, stStrongPv, openWord, openStudy, closeStudy, stInsert, closeSheet, closePlans, openPlanDetail, openVerse, openWord, requestA11y }; window.__dbg = () => ({ mode, fy: FY.i, n: FY.items.length, pl: PL.i, wl: wheelLock - Date.now() }); syncGate(); try { A && A.ready && A.ready(); } catch (e) {}
 setTimeout(() => loadLex(), 2500);
 })();
 
