@@ -2019,6 +2019,23 @@ function fillPersonMini(box) {
   const m = box.querySelector('.pp-mini[data-pcode]'); if (!m) return;
   loadPeople(() => { const h = personMini(m.dataset.pcode, m.dataset.pg === '' ? null : +m.dataset.pg); if (m.isConnected) m.outerHTML = h || ''; });
 }
+function pMiniI(i, pre) {
+  const p = PEOPLE[i];
+  return '<button class="pp-mini on" data-p="' + i + '"><span class="pp-av">' + esc(pShort(p.n).slice(0, 1)) + '</span><span class="pp-mt"><b>' + esc(pShort(p.n)) + '</b><small>' + (pre ? esc(pre) + ' · ' : '') + esc([p.r, p.p].filter(Boolean).join(' · ')) + ' · ' + p.c + L(' mențiuni', ' mentions') + '</small></span><span class="pp-go">' + L('Card', 'Card') + ' ›</span></button>';
+}
+let PIDX = null;
+function pIdx() {
+  if (PIDX || !window.PEOPLE) return PIDX; PIDX = {};
+  PEOPLE.forEach((p, i) => { if (!p.c) return; pRefs(p).forEach(e => { (PIDX[e] || (PIDX[e] = [])).push(i); }); });
+  return PIDX;
+}
+const pSort = ids => ids.slice().sort((a, b) => PEOPLE[b].c - PEOPLE[a].c);
+function peopleInVerse(g) { const x = pIdx(); return x ? pSort(x[pEncG(g)] || []) : []; }
+function peopleInChapter(b, c) {
+  const x = pIdx(); if (!x) return []; const cnt = {}; const n = VC[b][c];
+  for (let v = 0; v < n; v++) (x[(b + 1) * 1000000 + (c + 1) * 1000 + v + 1] || []).forEach(i => cnt[i] = (cnt[i] || 0) + 1);
+  return Object.keys(cnt).map(Number).sort((a, b2) => cnt[b2] - cnt[a] || PEOPLE[b2].c - PEOPLE[a].c).map(i => [i, cnt[i]]);
+}
 function openPerson(i) {
   if (!window.PEOPLE) { loadPeople(() => openPerson(i)); return; }
   const p = PEOPLE[i]; if (!p) return; const l = S.lang === 'en' ? 'en' : 'ro';
@@ -2062,15 +2079,18 @@ function stRenderBible() {
   }).join('') + '<p class="st-hint">' + L('Atinge un verset pentru opțiuni · ține apăsat și trage în foaie', 'Tap a verse for options · long-press and drag onto the sheet') + '</p>';
   if (STUDY.hist && STUDY.hist.length) { const bg = STUDY.hist[STUDY.hist.length - 1]; $('#stVerses').insertAdjacentHTML('afterbegin', '<button class="st-backbar" data-back="1">' + I.back + '<span>' + L('Înapoi la ', 'Back to ') + esc(label(bg, l)) + '</span></button>'); }
   const box = $('#stVerses'); box.scrollTop = 0;
+  const g0 = STUDY.g; loadPeople(() => { if (STUDY.g !== g0) return; const row = box.querySelector('.st-ctx'); const ps = peopleInChapter(r.b, r.c); if (row && ps.length && !row.querySelector('[data-ppl]')) row.insertAdjacentHTML('beforeend', '<button class="ctx-chip ghost" data-ppl="1">👤 ' + L('Persoane', 'People') + ' <small>' + ps.length + '</small></button>'); });
   if (r.v > 0) { const t = box.querySelector('[data-g="' + STUDY.g + '"]'); if (t) setTimeout(() => { box.scrollTop = t.offsetTop - (STUDY.hist && STUDY.hist.length ? 120 : 60); t.classList.add('flash'); }, 30); }
   box.onclick = e => {
     if (STUDY.dragJustEnded) return;
     if (e.target.closest('[data-back]')) { stGoBack(); return; }
     const cx = e.target.closest('[data-ctx]'); if (cx) { openCtx(cx.dataset.ctx); return; }
     if (e.target.closest('[data-ctxs]')) { const rr = ref(STUDY.g); openCtxSearch(rr.b, rr.c); return; }
+    const pc = e.target.closest('[data-ppl]'); if (pc) { const rr = ref(STUDY.g); const ps = peopleInChapter(rr.b, rr.c); fnPop(pc, '<div class="fn-h">' + L('Persoane în ', 'People in ') + esc(BK[l][rr.b] + ' ' + (rr.c + 1)) + ' · ' + ps.length + '</div>' + ps.map(([i, n]) => pMiniI(i, n + L(' aici', ' here'))).join(''), pop => pop.querySelectorAll('[data-p]').forEach(b => b.onclick = () => { pop.remove(); openPerson(+b.dataset.p); })); return; }
+    const pm = e.target.closest('.pp-mini[data-p]'); if (pm) { e.stopPropagation(); openPerson(+pm.dataset.p); return; }
     const ac = e.target.closest('[data-va]'); if (ac) {
       e.stopPropagation(); const g = +ac.dataset.g, k = ac.dataset.va, bar = ac.closest('.sva'); hap(0);
-      if (k === 'w') stWords(g, bar); else if (k === 'x') stXrefs(g, bar);
+      if (k === 'w') stWords(g, bar); else if (k === 'x') stXrefs(g, bar); else if (k === 'p') stPeople(g, bar);
       else { stInsert({ type: 'v', gs: STUDY.sel.includes(g) && STUDY.sel.length > 1 ? STUDY.sel.slice() : [g] }); STUDY.sel = []; stMarkSel(); stShowBar(null); }
       return;
     }
@@ -2087,8 +2107,10 @@ function stShowBar(row) {
   const bar = document.createElement('div'); bar.className = 'sva';
   bar.innerHTML = '<button data-va="w" data-g="' + g + '"><b>' + (isNT(g) ? 'Αα' : 'אב') + '</b>' + L('Original', 'Original') + '</button>' +
     (nx ? '<button data-va="x" data-g="' + g + '">' + I.link + L('Trimiteri', 'Cross-refs') + ' <small>' + nx + '</small></button>' : '') +
+    (window.PEOPLE && peopleInVerse(g).length ? '<button data-va="p" data-g="' + g + '"><b>👤</b>' + L('Persoane', 'People') + ' <small>' + peopleInVerse(g).length + '</small></button>' : '') +
     '<button data-va="a" data-g="' + g + '" class="pri">' + I.plus + L('În foaie', 'To sheet') + '</button>';
   row.after(bar);
+  if (!window.PEOPLE) loadPeople(() => { if (bar.isConnected) stShowBar(row); });
 }
 function stNavTo(g, from) {
   STUDY.hist = STUDY.hist || []; STUDY.hist.push(from != null ? from : STUDY.g);
@@ -2261,6 +2283,14 @@ function stXrefs(g, row) {
   const box = document.createElement('div'); box.className = 'sws sxs';
   STUDY.xFrom = g;
   box.innerHTML = '<div class="sws-h">' + L('Atinge = vezi versetul · ține apăsat = mergi la el · trage = în foaie', 'Tap = preview · hold = go there · drag = to sheet') + '</div><div class="sxl">' + xs.map(x => '<button class="sxr" data-g="' + x.g + '" data-sp="' + (x.span || 0) + '">' + esc(xlabel(x, l)) + '</button>').join('') + '</div>';
+  row.after(box);
+}
+function stPeople(g, row) {
+  const open = row.nextElementSibling && row.nextElementSibling.classList.contains('spp');
+  $('#stVerses').querySelectorAll('.sws,.sxs').forEach(x => x.remove());
+  if (open) return;
+  const box = document.createElement('div'); box.className = 'sws spp';
+  box.innerHTML = '<div class="sws-h">' + L('Persoane numite în acest verset · atinge pentru card', 'People named in this verse · tap for the card') + '</div>' + peopleInVerse(g).map(i => pMiniI(i)).join('');
   row.after(box);
 }
 function stWords(g, row) {
