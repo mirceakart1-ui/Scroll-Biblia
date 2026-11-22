@@ -2036,6 +2036,65 @@ function peopleInChapter(b, c) {
   for (let v = 0; v < n; v++) (x[(b + 1) * 1000000 + (c + 1) * 1000 + v + 1] || []).forEach(i => cnt[i] = (cnt[i] || 0) + 1);
   return Object.keys(cnt).map(Number).sort((a, b2) => cnt[b2] - cnt[a] || PEOPLE[b2].c - PEOPLE[a].c).map(i => [i, cnt[i]]);
 }
+/* ===== Hărți și locuri (offline; OpenBible.info Geocoding CC BY 4.0 + Natural Earth) ===== */
+let geoCbs = null, GIDX = null;
+function loadGeo(cb) {
+  if (window.GEO) { cb && cb(); return; }
+  if (geoCbs) { cb && geoCbs.push(cb); return; }
+  geoCbs = cb ? [cb] : []; const sc = document.createElement('script'); sc.src = 'geo.js';
+  sc.onload = () => { const c = geoCbs; geoCbs = null; c.forEach(f => f()); };
+  sc.onerror = () => { geoCbs = null; };
+  document.head.appendChild(sc);
+}
+function gIdx() {
+  if (GIDX || !window.GEO) return GIDX; GIDX = { v: {}, c: {} };
+  GEO.forEach((p, i) => { let prev = 0; (p[8] || '').split(',').forEach(x => { if (!x) return; prev += parseInt(x, 36); (GIDX.v[prev] || (GIDX.v[prev] = [])).push(i); const ck = Math.floor(prev / 1000); const m = GIDX.c[ck] || (GIDX.c[ck] = {}); (m[i] || (m[i] = [])).push(prev); }); });
+  return GIDX;
+}
+function placesInChapter(b, c) { const x = gIdx(); if (!x) return []; const m = x.c[(b + 1) * 1000 + c + 1] || {}; return Object.keys(m).map(Number).map(i => [i, m[i]]).sort((a, b2) => b2[1].length - a[1].length || a[1][0] - b2[1][0]); }
+function placesInVerse(g) { const x = gIdx(); return x ? (x.v[pEncG(g)] || []).map(i => [i, [pEncG(g)]]) : []; }
+const gXY = (lo, la) => [(lo - 8) * 100 * GEOBASE.k, (46 - la) * 100];
+function gConf(n) { return n >= 900 ? [L('sigur', 'certain'), 'c4'] : n >= 500 ? [L('probabil', 'likely'), 'c3'] : n >= 200 ? [L('posibil', 'possible'), 'c2'] : [L('incert', 'uncertain'), 'c1']; }
+function geoSvg(list, mode) {
+  const B = GEOBASE, pts = list.map(([i]) => { const p = GEO[i]; return gXY(p[2], p[3]); });
+  let x0 = 0, y0 = 0, x1 = B.w, y1 = B.h;
+  if (mode !== 'w' && pts.length) {
+    x0 = Math.min(...pts.map(p => p[0])); x1 = Math.max(...pts.map(p => p[0])); y0 = Math.min(...pts.map(p => p[1])); y1 = Math.max(...pts.map(p => p[1]));
+    const minS = mode === 'r' ? 900 : 110, cx = (x0 + x1) / 2, cy = (y0 + y1) / 2; let w = Math.max(x1 - x0, minS) * (mode === 'r' ? 1.6 : 1.3), h = Math.max(y1 - y0, minS * .75) * (mode === 'r' ? 1.6 : 1.3);
+    if (w / h < 1.25) w = h * 1.25; else h = w / 1.25;
+    x0 = cx - w / 2; x1 = cx + w / 2; y0 = cy - h / 2; y1 = cy + h / 2;
+  }
+  const W = x1 - x0, fs = W / 30, many = list.length > 30, r = W / (many ? 130 : 62);
+  const refs = [['Ierusalim', 35.23, 31.78], ['Damasc', 36.29, 33.51], ['Babilon', 44.42, 32.54], ['Ninive', 43.15, 36.36], ['Memfis', 31.25, 29.85], ['Susa', 48.26, 32.19], ['Antiohia', 36.16, 36.2], ['Efes', 27.34, 37.94], ['Atena', 23.72, 37.97], ['Roma', 12.49, 41.89], ['Tir', 35.2, 33.27], ['Gaza', 34.46, 31.5], ['Corint', 22.88, 37.91], ['Ur', 46.1, 30.96], ['Haran', 39.03, 36.86]];
+  const used = [];
+  const free = (x, y) => !used.some(u => Math.abs(u[0] - x) < fs * 4 && Math.abs(u[1] - y) < fs * 1.1);
+  let lab = '', mk = '';
+  list.forEach(([i], k) => { const [x, y] = pts[k]; mk += '<g class="gm-m" data-gi="' + i + '"><circle cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="' + r.toFixed(2) + '"/><text class="gm-n" x="' + x.toFixed(1) + '" y="' + (y + r * .42).toFixed(1) + '" font-size="' + (r * 1.15).toFixed(2) + '">' + (k + 1) + '</text></g>'; });
+  list.forEach(([i], k) => { const [x, y] = pts[k]; if (k < 25 && free(x + r * 1.4, y)) { used.push([x + r * 1.4 + fs * 2, y]); lab += '<text class="gm-l" x="' + (x + r * 1.4).toFixed(1) + '" y="' + (y + fs * .35).toFixed(1) + '" font-size="' + fs.toFixed(2) + '">' + esc(pShort(GEO[i][0])) + '</text>'; } });
+  const names = list.map(([i]) => pShort(GEO[i][0]));
+  const rl = refs.map(q => [q, gXY(q[1], q[2])]).filter(([q, [x, y]]) => x > x0 && x < x1 && y > y0 && y < y1 && names.indexOf(q[0]) < 0 && free(x, y)).map(([q, [x, y]]) => { used.push([x, y]); return '<circle class="gm-rd" cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="' + (r * .45).toFixed(2) + '"/><text class="gm-rl" x="' + (x + r * .8).toFixed(1) + '" y="' + (y + fs * .3).toFixed(1) + '" font-size="' + (fs * .8).toFixed(2) + '">' + q[0] + '</text>'; }).join('');
+  return '<svg class="gm" viewBox="' + [x0, y0, W, y1 - y0].map(v => v.toFixed(1)).join(' ') + '" preserveAspectRatio="xMidYMid slice"><rect x="-9999" y="-9999" width="29999" height="29999" class="gm-sea"/><path class="gm-land" d="' + B.land + '"/><path class="gm-lake" d="' + B.lake + '"/><path class="gm-riv" d="' + B.riv + '"/>' + rl + mk + lab + '</svg>';
+}
+function openMap(list, title, chap) {
+  const l = stLang();
+  const row = ([i, vs], k) => { const p = GEO[i]; const [cf, cc] = gConf(p[5]);
+    return '<div class="gm-it" data-gi="' + i + '"><div class="gm-ih"><span class="gm-no">' + (k + 1) + '</span><b>' + esc(p[0]) + '</b>' + (p[0] !== p[1] ? '<small> · ' + esc(p[1]) + '</small>' : '') + '<span class="gm-cf ' + cc + '">' + cf + '</span></div>' +
+      '<div class="gm-md">' + esc(p[4]) + (p[6] && p[6] !== p[1] && !/^another name/.test(p[6]) ? ' · ' + L('azi: ', 'today: ') + esc(p[6]) : '') + (p[7] ? ' · ' + L('există și alte identificări', 'other identifications exist') : '') + '</div>' +
+      '<div class="cs-vs">' + vs.slice(0, 12).map(n => pRefBtn(n, l)).join('') + (p[9] ? '<a href="https://www.openbible.info/geo/ancient/' + p[9] + '" data-url>OpenBible ↗</a>' : '') + '</div></div>'; };
+  const html = '<div class="gm-z"><button data-gz="c" class="on">' + L('Aproape', 'Close') + '</button><button data-gz="r">' + L('Regiune', 'Region') + '</button><button data-gz="w">' + L('Toată harta', 'Whole map') + '</button></div><div class="gm-box">' + geoSvg(list, 'c') + '</div>' +
+    '<div class="gm-list">' + list.map(row).join('') + '</div>' +
+    '<p class="cs-note">* ' + L('Coordonate: OpenBible.info, Bible Geocoding Data (CC BY 4.0), cu gradul de încredere al identificării; hartă de bază: Natural Earth (domeniu public; coastele și râurile de azi). Localizarea multor locuri antice e o identificare academică, nu o certitudine. Numele românești sunt potrivite automat după Cornilescu.', 'Coordinates: OpenBible.info Bible Geocoding Data (CC BY 4.0) with identification confidence; base map: Natural Earth (public domain; modern coasts and rivers). Many ancient sites are scholarly identifications, not certainties.') + '</p>';
+  ctxOverlay(title, html, ov => {
+    const box = ov.querySelector('.gm-box');
+    const hl = gi => { ov.querySelectorAll('.gm-it.on,.gm-m.on').forEach(x => x.classList.remove('on')); ov.querySelectorAll('[data-gi="' + gi + '"]').forEach(x => x.classList.add('on')); };
+    ov.querySelector('.ctx-bd').addEventListener('click', e => {
+      const z = e.target.closest('[data-gz]'); if (z) { ov.querySelectorAll('[data-gz]').forEach(b => b.classList.toggle('on', b === z)); box.innerHTML = geoSvg(list, z.dataset.gz); hap(0); return; }
+      const v = e.target.closest('.cs-v'); if (v) { e.stopPropagation(); const g = +v.dataset.g; ov.remove(); if (document.getElementById('study')) stPreview(g, 0); else openVerse(g, true); return; }
+      const m = e.target.closest('.gm-m'); if (m) { const gi = m.dataset.gi; hl(gi); const it = ov.querySelector('.gm-it[data-gi="' + gi + '"]'); if (it) it.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); return; }
+      const it = e.target.closest('.gm-it'); if (it && !e.target.closest('a')) { hl(it.dataset.gi); box.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
+    });
+  });
+}
 function openPerson(i) {
   if (!window.PEOPLE) { loadPeople(() => openPerson(i)); return; }
   const p = PEOPLE[i]; if (!p) return; const l = S.lang === 'en' ? 'en' : 'ro';
@@ -2080,6 +2139,7 @@ function stRenderBible() {
   if (STUDY.hist && STUDY.hist.length) { const bg = STUDY.hist[STUDY.hist.length - 1]; $('#stVerses').insertAdjacentHTML('afterbegin', '<button class="st-backbar" data-back="1">' + I.back + '<span>' + L('Înapoi la ', 'Back to ') + esc(label(bg, l)) + '</span></button>'); }
   const box = $('#stVerses'); box.scrollTop = 0;
   const g0 = STUDY.g; loadPeople(() => { if (STUDY.g !== g0) return; const row = box.querySelector('.st-ctx'); const ps = peopleInChapter(r.b, r.c); if (row && ps.length && !row.querySelector('[data-ppl]')) row.insertAdjacentHTML('beforeend', '<button class="ctx-chip ghost" data-ppl="1">👤 ' + L('Persoane', 'People') + ' <small>' + ps.length + '</small></button>'); });
+  loadGeo(() => { if (STUDY.g !== g0) return; const row = box.querySelector('.st-ctx'); const ps = placesInChapter(r.b, r.c); if (row && ps.length && !row.querySelector('[data-pmap]')) row.insertAdjacentHTML('beforeend', '<button class="ctx-chip ghost" data-pmap="1">📍 ' + L('Locuri și hartă', 'Places & map') + ' <small>' + ps.length + '</small></button>'); });
   if (r.v > 0) { const t = box.querySelector('[data-g="' + STUDY.g + '"]'); if (t) setTimeout(() => { box.scrollTop = t.offsetTop - (STUDY.hist && STUDY.hist.length ? 120 : 60); t.classList.add('flash'); }, 30); }
   box.onclick = e => {
     if (STUDY.dragJustEnded) return;
@@ -2087,10 +2147,11 @@ function stRenderBible() {
     const cx = e.target.closest('[data-ctx]'); if (cx) { openCtx(cx.dataset.ctx); return; }
     if (e.target.closest('[data-ctxs]')) { const rr = ref(STUDY.g); openCtxSearch(rr.b, rr.c); return; }
     const pc = e.target.closest('[data-ppl]'); if (pc) { const rr = ref(STUDY.g); const ps = peopleInChapter(rr.b, rr.c); fnPop(pc, '<div class="fn-h">' + L('Persoane în ', 'People in ') + esc(BK[l][rr.b] + ' ' + (rr.c + 1)) + ' · ' + ps.length + '</div>' + ps.map(([i, n]) => pMiniI(i, n + L(' aici', ' here'))).join(''), pop => pop.querySelectorAll('[data-p]').forEach(b => b.onclick = () => { pop.remove(); openPerson(+b.dataset.p); })); return; }
+    if (e.target.closest('[data-pmap]')) { const rr = ref(STUDY.g); openMap(placesInChapter(rr.b, rr.c), L('Locuri · ', 'Places · ') + BK[l][rr.b] + ' ' + (rr.c + 1)); return; }
     const pm = e.target.closest('.pp-mini[data-p]'); if (pm) { e.stopPropagation(); openPerson(+pm.dataset.p); return; }
     const ac = e.target.closest('[data-va]'); if (ac) {
       e.stopPropagation(); const g = +ac.dataset.g, k = ac.dataset.va, bar = ac.closest('.sva'); hap(0);
-      if (k === 'w') stWords(g, bar); else if (k === 'x') stXrefs(g, bar); else if (k === 'p') stPeople(g, bar);
+      if (k === 'w') stWords(g, bar); else if (k === 'x') stXrefs(g, bar); else if (k === 'p') stPeople(g, bar); else if (k === 'm') openMap(placesInVerse(g), L('Locuri · ', 'Places · ') + label(g, l));
       else { stInsert({ type: 'v', gs: STUDY.sel.includes(g) && STUDY.sel.length > 1 ? STUDY.sel.slice() : [g] }); STUDY.sel = []; stMarkSel(); stShowBar(null); }
       return;
     }
@@ -2107,10 +2168,12 @@ function stShowBar(row) {
   const bar = document.createElement('div'); bar.className = 'sva';
   bar.innerHTML = '<button data-va="w" data-g="' + g + '"><b>' + (isNT(g) ? 'Αα' : 'אב') + '</b>' + L('Original', 'Original') + '</button>' +
     (nx ? '<button data-va="x" data-g="' + g + '">' + I.link + L('Trimiteri', 'Cross-refs') + ' <small>' + nx + '</small></button>' : '') +
+    (window.GEO && placesInVerse(g).length ? '<button data-va="m" data-g="' + g + '"><b>📍</b>' + L('Hartă', 'Map') + ' <small>' + placesInVerse(g).length + '</small></button>' : '') +
     (window.PEOPLE && peopleInVerse(g).length ? '<button data-va="p" data-g="' + g + '"><b>👤</b>' + L('Persoane', 'People') + ' <small>' + peopleInVerse(g).length + '</small></button>' : '') +
     '<button data-va="a" data-g="' + g + '" class="pri">' + I.plus + L('În foaie', 'To sheet') + '</button>';
   row.after(bar);
   if (!window.PEOPLE) loadPeople(() => { if (bar.isConnected) stShowBar(row); });
+  else if (!window.GEO) loadGeo(() => { if (bar.isConnected) stShowBar(row); });
 }
 function stNavTo(g, from) {
   STUDY.hist = STUDY.hist || []; STUDY.hist.push(from != null ? from : STUDY.g);
@@ -2623,7 +2686,7 @@ window.addEventListener('resize', () => { if (STUDY.open) { $('#study').classNam
 updateTopicTab(); setMode('read'); window.__ready = true; try { stAutoStart(); } catch (e) {}
 if (WEB && 'serviceWorker' in navigator && location.protocol === 'https:') { try { navigator.serviceWorker.register('sw.js').catch(() => {}); } catch (e) {} }
 if (WEB && IOS && !STANDALONE && !S.instHint) { S.instHint = 1; persist(); setTimeout(() => toast(UI_EN ? 'Tip: ☰ → Install on iPhone' : 'Sfat: ☰ → Instalează pe iPhone'), 2500); }
-window.__t = { openPerson, loadPeople, openCtx, placeCard, stNavGo: g => { STUDY.g = g; STUDY.sel = []; stRenderBible(); }, G, stStrongPv, openWord, openStudy, closeStudy, stInsert, closeSheet, closePlans, openPlanDetail, openVerse, openWord, requestA11y }; window.__dbg = () => ({ mode, fy: FY.i, n: FY.items.length, pl: PL.i, wl: wheelLock - Date.now() }); syncGate(); try { A && A.ready && A.ready(); } catch (e) {}
+window.__t = { openPerson, openMap, loadGeo, placesInChapter, loadPeople, openCtx, placeCard, stNavGo: g => { STUDY.g = g; STUDY.sel = []; stRenderBible(); }, G, stStrongPv, openWord, openStudy, closeStudy, stInsert, closeSheet, closePlans, openPlanDetail, openVerse, openWord, requestA11y }; window.__dbg = () => ({ mode, fy: FY.i, n: FY.items.length, pl: PL.i, wl: wheelLock - Date.now() }); syncGate(); try { A && A.ready && A.ready(); } catch (e) {}
 setTimeout(() => loadLex(), 2500);
 })();
 
