@@ -1,6 +1,6 @@
 (function () {
 'use strict';
-const APP_VER = '8.8';
+const APP_VER = '8.9';
 const $ = s => document.querySelector(s);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const A = window.Android || null;
