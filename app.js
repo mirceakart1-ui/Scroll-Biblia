@@ -1,6 +1,6 @@
 (function () {
 'use strict';
-const APP_VER = '8.5';
+const APP_VER = '8.6';
 const $ = s => document.querySelector(s);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const A = window.Android || null;
@@ -663,6 +663,7 @@ function fillCard(el, it) {
   el.querySelector('.actions').innerHTML =
     '<button data-act="topic" class="' + (mode === 'foryou' ? 'on topicon' : '') + '">' + (mode === 'foryou' && TT ? '<span class="temoji">' + TT[1] + '</span>' : I.tags) + T('<span>Tematic</span></button>') +
     '<button data-act="like" class="' + (S.liked[g] ? 'on' : '') + '">' + I.heart + T('<span>Îmi place</span></button>') +
+    '<button data-act="save" class="' + (S.saved[g] ? 'on' : '') + '">' + I.save + '<span>' + (S.saved[g] ? L('Salvat', 'Saved') : L('Salvează', 'Save')) + '</span></button>' +
     '<button data-act="narr" class="' + (NARR.on || TTS.on ? 'on playing' : '') + '">' + (NARR.on || TTS.on ? I.stop : I.headphones) + '<span>' + (NARR.on || TTS.on ? T('Stop') : T('Audio')) + '</span></button>' +
     '<button data-act="share">' + I.share + T('<span>Distribuie</span></button>') +
     '<button data-act="lang"><div class="lang">' + (S.lang === 'both' ? '⇄' : langLbl) + '</div><span>' + langLbl + '</span></button>';
@@ -899,6 +900,7 @@ function doubleLike(x, y) {
 }
 function act(a) {
   const g = curG();
+  if (a === 'save') { openSaveTo(g); hap(1); return; }
   if (a === 'like') { if (S.liked[g]) { delete S.liked[g]; hap(0); } else { S.liked[g] = Date.now(); hap(1); } persist(); refresh(); }
   else if (a === 'save') { if (S.saved[g]) { delete S.saved[g]; toast(T('Scos din salvate')); } else { S.saved[g] = Date.now(); haptic(); toast(T('Salvat')); } persist(); refresh(); }
   else if (a === 'ctx') openChapter(g);
@@ -1054,6 +1056,7 @@ function unsaveVerse(g) { delete S.saved[g]; S.cols.forEach(c => delete c.items[
 function coverStyle(seed) { const p = PAL[(seed * 37 + 11) % PAL.length]; return 'background:linear-gradient(150deg,' + p[2] + ',' + p[0] + ' 55%,' + p[1] + ')'; }
 function openSaveTo(g, push) {
   saveVerse(g);
+  if (S.lastCol && colById(S.lastCol) && !S.cols.some(c => c.items[g])) { colById(S.lastCol).items[g] = Date.now(); persist(); }
   const l = S.lang === 'en' ? 'en' : 'ro';
   let h = '<div class="svhead"><div class="svcover" style="' + coverStyle(g) + '">' + I.save + '</div><div><b>' + L('Salvat', 'Saved') + ' ✓</b><small>' + esc(label(g, l)) + ' · ' + esc(txt(g, l).slice(0, 60)) + '…</small></div></div>';
   h += '<div class="sec">' + L('Adaugă în colecție', 'Add to collection') + '</div>';
@@ -1061,8 +1064,8 @@ function openSaveTo(g, push) {
   h += '<div class="newcol"><input id="ncn" class="search" maxlength="40" placeholder="' + L('Colecție nouă (ex. Rugăciune, Familie)', 'New collection (e.g. Prayer, Family)') + '"><button class="btn" id="ncb" style="margin:0">' + L('Creează', 'Create') + '</button></div>';
   h += '<button class="btn ghost" id="unsv" style="margin-top:18px;color:#ff8a8a">' + L('Scoate din salvate', 'Remove from saved') + '</button>';
   openSheet(L('Salvează în colecție', 'Save to collection'), h, body => {
-    body.querySelectorAll('.crow').forEach(r => r.onclick = () => { const c = colById(r.dataset.c); if (c.items[g]) delete c.items[g]; else { c.items[g] = Date.now(); haptic(); } persist(); r.classList.toggle('on', !!c.items[g]); r.querySelector('.chk').textContent = c.items[g] ? '✓' : ''; const n = Object.keys(c.items).length; r.querySelector('small').textContent = n + ' ' + L(n === 1 ? 'verset' : 'versete', n === 1 ? 'verse' : 'verses'); });
-    const mk = () => { const v = body.querySelector('#ncn').value.trim(); if (!v) { body.querySelector('#ncn').focus(); return; } const c = { id: 'c' + Date.now(), name: v, items: {} }; c.items[g] = Date.now(); S.cols.unshift(c); persist(); haptic(); toast(L('Colecția „' + v + '” a fost creată', 'Collection “' + v + '” created')); sheetStack.pop(); openSaveTo(g, true); };
+    body.querySelectorAll('.crow').forEach(r => r.onclick = () => { const c = colById(r.dataset.c); if (c.items[g]) delete c.items[g]; else { c.items[g] = Date.now(); S.lastCol = c.id; haptic(); } persist(); r.classList.toggle('on', !!c.items[g]); r.querySelector('.chk').textContent = c.items[g] ? '✓' : ''; const n = Object.keys(c.items).length; r.querySelector('small').textContent = n + ' ' + L(n === 1 ? 'verset' : 'versete', n === 1 ? 'verse' : 'verses'); });
+    const mk = () => { const v = body.querySelector('#ncn').value.trim(); if (!v) { body.querySelector('#ncn').focus(); return; } const c = { id: 'c' + Date.now(), name: v, items: {} }; c.items[g] = Date.now(); S.cols.unshift(c); S.lastCol = c.id; persist(); haptic(); toast(L('Colecția „' + v + '” a fost creată', 'Collection “' + v + '” created')); sheetStack.pop(); openSaveTo(g, true); };
     body.querySelector('#ncb').onclick = mk;
     body.querySelector('#ncn').onkeydown = e => { if (e.key === 'Enter') mk(); };
     body.querySelector('#unsv').onclick = () => { unsaveVerse(g); toast(L('Scos din salvate', 'Removed from saved')); sheetBack(); };
@@ -1201,6 +1204,34 @@ const ETYM = /^\s*(?:\((?:caldeeană|aramaică)\)\s*;?\s*)?(?:(?:o |un )?(?:răd
 const shortDef = (e, code) => { const ro = code && roDef(code); let d = ro || (e[4] || e[3] || ''); if (ro) { d = d.replace(/^[\s,;:]+/, ''); for (let k = 0; k < 3 && ETYM.test(d); k++) d = d.replace(ETYM, ''); d = d.charAt(0).toUpperCase() + d.slice(1); } d = d.replace(/^[-–\s]+/, ''); return d.length > 80 ? d.slice(0, 78) + '…' : d; };
 function sheetOpen() { return !$('#sheet').classList.contains('hidden'); }
 
+function chronItemFor(g) {
+  if (!window.CHRON) return null; const e = pEncG(g), ch = Math.floor(e / 1000), keep = CR.mode;
+  for (const md of [keep, keep === 'g' ? 'm' : 'g']) { CR.mode = md; const its = crItems();
+    let k = its.findIndex(it => (it[7] || []).includes(e)); if (k < 0) k = its.findIndex(it => (it[7] || []).some(r => Math.floor(r / 1000) === ch));
+    if (k < 0 && window.PEOPLE) { const ps = peopleInVerse(g); if (ps.length) k = its.findIndex(it => ps.indexOf(crPersonIdx(it)) >= 0); }
+    if (k < 0) { let bd = 9; its.forEach((it, j) => (it[7] || []).forEach(r => { const d = ch - Math.floor(r / 1000); if (Math.floor(r / 1e6) === Math.floor(e / 1e6) && d >= 0 && d < bd) { bd = d; k = j; } })); }
+    if (k >= 0) { CR.mode = keep; return [md, k, its[k]]; } }
+  CR.mode = keep; return null;
+}
+function openChronAtG(g) {
+  const x = chronItemFor(g); if (!x) { openChron(); return; }
+  closeSheet(); openChron(); const t0 = Date.now();
+  const w = () => { if (!$('#crSc') || !window.CHRON) { if (Date.now() - t0 < 4000) setTimeout(w, 80); return; } const y = chronItemFor(g); if (!y) return; if (CR.mode !== y[0]) { CR.mode = y[0]; const seg = document.querySelector('#crMode [data-m="' + y[0] + '"]'); if (seg) { seg.click(); setTimeout(() => crGoItem(chronItemFor(g)[1]), 120); return; } } crGoItem(y[1]); };
+  setTimeout(w, 120);
+}
+function vLinks(body, g) {
+  const box = body.querySelector('#vlinks'); if (!box) return;
+  loadChron(() => loadPeople(() => loadGeo(() => {
+    if (!box.isConnected) return; const ps = peopleInVerse(g), pl = placesInVerse(g), ci = chronItemFor(g), l = S.lang === 'en' ? 'en' : 'ro';
+    box.innerHTML = (ci ? '<button class="chip" data-vl="c">🕰 ' + L('Cronologie', 'Timeline') + ' <small>' + esc(String(ci[2][0]).slice(0, 26)) + '</small></button>' : '') +
+      (ps.length ? '<button class="chip" data-vl="p">👤 ' + L('Persoane', 'People') + ' <small>' + ps.length + '</small></button>' : '') +
+      (pl.length ? '<button class="chip" data-vl="m">📍 ' + L('Hartă', 'Map') + ' <small>' + pl.length + '</small></button>' : '');
+    box.onclick = e => { const b = e.target.closest('[data-vl]'); if (!b) return; const k = b.dataset.vl, r = ref(g);
+      if (k === 'c') openChronAtG(g);
+      else if (k === 'p') fnPop(b, '<div class="fn-h">' + L('Persoane în acest verset', 'People in this verse') + '</div>' + ps.map(i => pMiniI(i)).join(''), pop => pop.querySelectorAll('[data-p]').forEach(x => x.onclick = () => { pop.remove(); openPerson(+x.dataset.p); }));
+      else if (k === 'm') { closeSheet(); openMap(pl, label(g, l), [r.b, r.c, pEncG(g)]); } };
+  })));
+}
 function openVerse(g, push, focus, tapped) {
   if (!window.LEX_H) { loadLex(() => openVerse(g, push, focus, tapped)); return; }
   const l = S.lang === 'en' ? 'en' : 'ro';
@@ -1211,11 +1242,13 @@ function openVerse(g, push, focus, tapped) {
   const xs = xrefs(g);
   h += T('<div class="sec" id="xr">Trimiteri (') + xs.length + ')</div>';
   h += xs.length ? '<div class="chips big">' + xs.map(x => '<button class="chip" data-x="' + x.g + '">' + esc(xlabel(x, l)) + '</button>').join('') + '</div>' : T('<div class="hint">Nu există trimiteri pentru acest verset.</div>');
+  h += '<div class="chips vlinks" id="vlinks"></div>';
   const ws = origWords(g);
   h += T('<div class="sec" id="words">Cuvinte originale – ') + (isNT(g) ? T('greacă') : T('ebraică')) + '</div>';
   if (tapped) h += T('<div class="hint">Ai atins „') + esc(tapped) + T('”. Alege cuvântul corespunzător din lista de mai jos (textul românesc nu e aliniat cuvânt cu cuvânt cu originalul).</div>');
   h += ws.map(w => { const e = lexEntry(w.s) || ['', '', '', '', '']; return '<button class="orow" data-s="' + w.s + '"><span class="oen">' + esc(w.en) + '</span><span class="oor ' + (w.s[0] === 'H' ? 'heb' : 'grk') + '">' + esc(e[0]) + '</span><span class="otr">' + esc(e[1]) + ' · ' + w.s + '</span><span class="odef">' + esc(shortDef(e, w.s)) + '</span></button>'; }).join('');
   openSheet(label(g, l), h, body => {
+    vLinks(body, g);
     body.querySelectorAll('[data-onv]').forEach(b => b.onclick = () => openOnv(b.dataset.onv, +b.dataset.g));
     body.querySelectorAll('[data-x]').forEach(b => b.onclick = () => openVerse(+b.dataset.x, true));
     body.querySelectorAll('.orow').forEach(b => b.onclick = () => openWord(b.dataset.s, true, g));
@@ -1913,28 +1946,34 @@ function openPrivacy() {
 }
 
 /* menu & settings */
+function openLibMenu() {
+  const nS = Object.keys(S.saved).length, nL = Object.keys(S.liked).length;
+  const h = '<button class="mitem" data-m="plans">' + I.cal + T('Planuri de citire<small>') + (S.plan ? T('1 activ') : '') + '</small></button>' +
+    '<button class="mitem" data-m="topics">' + I.tags + T('Versete pe teme<small>') + ((TOPICS.find(t => t[0] === S.topic) || [0, '', T('toate')])[2]) + '</small></button>' +
+    '<button class="mitem" data-m="saved">' + I.save + L('Versete salvate și apreciate', 'Saved & liked verses') + '<small>' + nS + ' · ♥ ' + nL + '</small></button>' +
+    '<button class="mitem" data-m="nave">' + I.tags + L('Biblia pe teme', 'Topical Bible') + '<small>Nave</small></button>' +
+    '<button class="mitem" data-m="gnames">' + I.book + L('Numele lui Dumnezeu', 'Names of God') + '</button>' +
+    '<button class="mitem" data-m="votd">' + I.shuffle + T('Versetul zilei</button>') +
+    '<button class="mitem" data-m="dict">' + I.book + L('Dicționar biblic', 'Bible dictionary') + '<small>Easton · Hitchcock</small></button>';
+  openSheet(L('Citire și studiu', 'Reading & study'), h, body => body.querySelectorAll('[data-m]').forEach(b => b.onclick = () => { const m = b.dataset.m;
+    if (m === 'plans') { closeSheet(); openPlans(); } else if (m === 'topics') openTopics(); else if (m === 'saved') openSaved('saved'); else if (m === 'nave') openNaveSearch(); else if (m === 'gnames') openGodNames(); else if (m === 'votd') { closeSheet(); showVotd(); } else if (m === 'dict') openDictSearch(); }), true);
+}
 function openMenu() {
   const nS = Object.keys(S.saved).length, nL = Object.keys(S.liked).length;
   const h = '<div class="menu-stats"><div class="stat"><b>' + streak() + T('</b><span>zile la rând</span></div><div class="stat"><b>') + (S.days[today()] || 0) + T('</b><span>versete azi</span></div><div class="stat"><b>') + (S.total || 0) + T('</b><span>versete total</span></div></div>') +
     '<button class="mitem" data-m="study">' + I.pen + L('Mod studiu · notițe', 'Study mode · notes') + '<small>' + ((S.notes || []).length || '') + '</small></button>' +
-    '<button class="mitem" data-m="sleep">' + I.moon + L('Noapte bună · ascultare', 'Good night · listening') + '<small>' + (SLEEP.on ? '⏾ ' + sleepLeftTxt() : '') + '</small></button>' +
-    '<button class="mitem" data-m="plans">' + I.cal + T('Planuri de citire<small>') + (S.plan ? T('1 activ') : '') + '</small></button>' +
-    (NOGATE ? '' : '<button class="mitem" data-m="block">' + I.shield + T('Blocare aplicații de scrolling<small>') + (hardUntil() > Date.now() ? T('🔒 până ') + hhmm(hardUntil()) : S.gate.on ? T('activă') : T('oprită')) + '</small></button>') +
+    '<button class="mitem" data-m="chron">' + I.cal + L('Cronologie biblică', 'Biblical chronology') + '<small>' + L('de la Geneza la Apocalipsa', 'Genesis to Revelation') + '</small></button>' +
+    '<button class="mitem" data-m="lib">' + I.book + L('Citire și studiu', 'Reading & study') + '<small>' + L('planuri, salvate, dicționar ›', 'plans, saved, dictionary ›') + '</small></button>' +
     '<button class="mitem" data-m="stats">' + I.chart + T('Statistici și progres</button>') +
-    '<button class="mitem" data-m="topics">' + I.tags + T('Versete pe teme<small>') + ((TOPICS.find(t => t[0] === S.topic) || [0, '', T('toate')])[2]) + '</small></button>' +
-    '<button class="mitem" data-m="dict">' + I.book + L('Dicționar biblic', 'Bible dictionary') + '<small>Easton · Hitchcock</small></button>' +
-    '<button class="mitem" data-m="nave">' + I.tags + L('Biblia pe teme', 'Topical Bible') + '<small>Nave</small></button>' +
-    '<button class="mitem" data-m="gnames">' + I.book + L('Numele lui Dumnezeu', 'Names of God') + '</button>' +
-    '<button class="mitem" data-m="search">' + I.search + T('Caută și alege carte/capitol</button>') +
-    '<button class="mitem" data-m="saved">' + I.save + T('Versete salvate<small>') + nS + '</small></button>' +
-    '<button class="mitem" data-m="liked">' + I.heart + T('Versete apreciate<small>') + nL + '</small></button>' +
-    '<button class="mitem" data-m="votd">' + I.shuffle + T('Versetul zilei</button>') +
+    (NOGATE ? '' : '<button class="mitem" data-m="block">' + I.shield + T('Blocare aplicații de scrolling<small>') + (hardUntil() > Date.now() ? T('🔒 până ') + hhmm(hardUntil()) : S.gate.on ? T('activă') : T('oprită')) + '</small></button>') +
     (WEB && !STANDALONE ? '<button class="mitem" data-m="inst">' + I.book + (UI_EN ? 'Install on iPhone' : 'Instalează pe iPhone') + '</button>' : '') +
     '<button class="mitem" data-m="set">' + I.gear + T('Setări</button>') +
     '<button class="mitem" data-m="priv">' + I.shield + T('Confidențialitate și siguranță</button>');
   openSheet('Scroll Biblia', h, body => (body.querySelector('.menu-stats').onclick = () => openStats(), body).querySelectorAll('[data-m]').forEach(b => b.onclick = () => {
     const m = b.dataset.m;
     if (m === 'study') { closeSheet(); openStudy(); return; }
+    if (m === 'chron') { closeSheet(); openChron(); return; }
+    if (m === 'lib') { openLibMenu(); return; }
     if (m === 'sleep') { openSleep(true); return; }
     if (m === 'dict') { openDictSearch(); return; } if (m === 'nave') { openNaveSearch(); return; } if (m === 'gnames') { openGodNames(); return; }
     if (m === 'books') { openBooks(); } else if (m === 'search') openSearch(); else if (m === 'saved') openSaved('saved'); else if (m === 'liked') openSaved('liked');
@@ -2582,7 +2621,7 @@ function openChron(atYear) {
     segs(); CR.sel = null; crRender();
     sc.scrollLeft = crX(crAdj(atYear != null && atYear !== 'g' ? atYear : CR.mode === 'g' ? 1000 : -1000)) - sc.clientWidth / 2; crSync();
     sc.addEventListener('scroll', crSync, { passive: true });
-    $('#crX').onclick = crClose;
+    $('#crX').onclick = e => { e.stopPropagation(); crClose(); };
     $('#crZi').onclick = () => crZoomTo(CR.sc * 1.6); $('#crZo').onclick = () => crZoomTo(CR.sc / 1.6);
     el.querySelectorAll('[data-m]').forEach(b => b.onclick = () => { CR.mode = b.dataset.m; CR.sel = null; segs(); crRender(); sc.scrollLeft = crX(CR.mode === 'g' ? 1000 : -1000) - sc.clientWidth / 2; crSync(); hap(0); });
     el.querySelectorAll('[data-x]').forEach(b => b.onclick = () => { const mid = (sc.scrollLeft + sc.clientWidth / 2 - 120) / CR.sc + crRange()[0]; CR.late = b.dataset.x === '1'; segs(); crRender(); sc.scrollLeft = crX(mid) - sc.clientWidth / 2; crSync(); hap(0); });

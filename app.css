@@ -866,7 +866,7 @@ html.day .cr-res{background:#fff}
 .cr-res button:active{background:rgba(127,127,127,.15)}
 .cr-res b{display:block;font-size:14px}.cr-res small{opacity:.6;font-size:12px}
 .cr-rh{font-size:11px;letter-spacing:.06em;text-transform:uppercase;opacity:.5;padding:8px 10px 2px}
-.cr-bar{display:flex;gap:8px;align-items:center;padding:4px 10px 8px;overflow-x:auto;scrollbar-width:none}
+.cr-bar{display:flex;gap:8px;align-items:center;padding:4px 10px 8px;overflow-x:auto;scrollbar-width:none;flex-wrap:wrap}
 .cr-bar .seg{display:flex;background:rgba(127,127,127,.14);border-radius:999px;padding:2px;flex:none}
 .cr-bar .seg button{border:0;background:transparent;color:inherit;font:inherit;font-size:12.5px;padding:6px 10px;border-radius:999px;opacity:.7;white-space:nowrap}
 .cr-bar .seg button.on{background:rgba(255,209,102,.22);opacity:1}
