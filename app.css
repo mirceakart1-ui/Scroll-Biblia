@@ -989,3 +989,4 @@ html.day #verWm{color:#1f1d26}
 .ref .vab{opacity:.55;font-size:.75em;letter-spacing:.04em}.vchk b small{opacity:.6}.vchk.on{background:rgba(255,209,102,.12)}
 .chips.onvs{margin-top:6px}.chip.onv{background:rgba(255,209,102,.18)}
 .ref .onvl{opacity:.6;font-size:.85em;margin-left:2px;cursor:pointer;padding:6px 2px}
+#top .tr{display:flex;align-items:center;gap:2px}#top .uil{font:700 13px/1 system-ui,sans-serif;letter-spacing:.05em;color:inherit;border:0;background:transparent;opacity:.85}#top .uil::after{content:"⇄";font-size:10px;margin-left:2px;opacity:.6}
