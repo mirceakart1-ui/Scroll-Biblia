@@ -1,6 +1,6 @@
 (function () {
 'use strict';
-const APP_VER = '8.4';
+const APP_VER = '8.5';
 const $ = s => document.querySelector(s);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const A = window.Android || null;
@@ -1333,7 +1333,8 @@ function loadDict(cb) {
   if (window.DICT_E) { cb && cb(); return; }
   if (dictCbs) { cb && dictCbs.push(cb); return; }
   dictCbs = cb ? [cb] : []; const sc = document.createElement('script'); sc.src = 'dict.js';
-  sc.onload = () => { const c = dictCbs; dictCbs = null; c.forEach(f => f()); };
+  const fin = () => { const c = dictCbs; dictCbs = null; c.forEach(f => f()); };
+  sc.onload = () => { const r = document.createElement('script'); r.src = 'dict_ro.js'; r.onload = fin; r.onerror = fin; document.head.appendChild(r); };
   sc.onerror = () => { const c = dictCbs; dictCbs = null; toast(L('Dicționarul nu s-a putut încărca', 'Dictionary failed to load')); c.forEach(f => f(1)); };
   document.head.appendChild(sc);
 }
@@ -1374,52 +1375,61 @@ function dMatch(g, word) {
   }
   return best || dRo(list, t);
 }
-function dPlain(hw) { return (DICT_E[hw] || []).map(p => p.replace(/<a data-r[^>]*>[^<]*<\/a>/g, '').replace(/\(\s*(?:Comp\.|comp\.|See|see)?[\s,;.]*(?:etc\.)?[\s,;.]*\)/g, '').replace(/\s+([,.;:])/g, '$1').replace(/\s{2,}/g, ' ')).join(' '); }
+const dRO = () => S.lang !== 'en' && !!window.DICT_E_RO;
+const dParts = (hw, en) => (!en && dRO() && DICT_E_RO[hw]) || DICT_E[hw] || [];
+const dIsRo = (hw, en) => !en && dRO() && !!DICT_E_RO[hw];
+const dTitle = hw => (dRO() && window.DICT_T_RO && DICT_T_RO[hw]) || hw;
+const dMean = hw => (S.lang !== 'en' && window.DICT_H_RO && DICT_H_RO[hw]) || (window.DICT_H || {})[hw];
+const nvName = k => (S.lang !== 'en' && window.NAVE_T_RO && NAVE_T_RO[k]) || (k.charAt(0) + k.slice(1).toLowerCase());
+const nvLab = t => (S.lang !== 'en' && window.NAVE_L_RO && NAVE_L_RO[t]) || t;
+function dPlain(hw) { return dParts(hw).map(p => p.replace(/<a data-r[^>]*>[^<]*<\/a>/g, '').replace(/\(\s*(?:Comp\.|comp\.|See|see)?[\s,;.]*(?:etc\.)?[\s,;.]*\)/g, '').replace(/\s+([,.;:])/g, '$1').replace(/\s{2,}/g, ' ')).join(' '); }
 function dictPop(anchor, x, fallback, oc) {
-  const hw = x.hw, H = DICT_H[hw], E = DICT_E[hw]; let t = E ? dPlain(hw) : ''; if (t.length > 420) t = t.slice(0, 400).replace(/\s\S*$/, '') + '…';
-  fnPop(anchor, '<div class="fn-h">' + esc(hw) + ' · ' + L('Dicționar biblic', 'Bible dictionary') + '</div>' +
+  const hw = x.hw, H = dMean(hw), E = DICT_E[hw]; let t = E ? dPlain(hw) : ''; if (t.length > 420) t = t.slice(0, 400).replace(/\s\S*$/, '') + '…';
+  fnPop(anchor, '<div class="fn-h">' + esc(dTitle(hw)) + ' · ' + L('Dicționar biblic', 'Bible dictionary') + '</div>' +
     (oc && lexEntry(oc) ? '<button class="fn-r one dor" data-dorig><b><span class="' + (oc[0] === 'H' ? 'heb' : 'grk') + '">' + esc(lexEntry(oc)[0]) + '</span> · ' + esc(lexEntry(oc)[1]) + ' · ' + oc + '</b><span>' + esc(shortDef(lexEntry(oc), oc)) + '</span></button>' : '') +
     (H ? '<p class="dh"><b>' + L('Sensul numelui', 'Name meaning') + ':</b> ' + esc(H) + '</p>' : '') +
-    (t ? '<p class="dtx" lang="en">' + t + '</p>' : '') +
+    (t ? '<p class="dtx" lang="' + (dIsRo(hw) ? 'ro' : 'en') + '">' + t + '</p>' : '') +
     (E ? '<button class="fn-more" data-dfull>' + L('Articolul complet', 'Full article') + ' ›</button>' : '') +
     (naveKey(hw) ? '<button class="fn-more" data-dnave>' + L('Versete pe temă (Nave)', 'Verses on this topic (Nave)') + ' ›</button>' : '') +
     (fallback ? '<button class="fn-more" data-dorig>' + (oc ? L('Cuvântul original', 'Original word') : L('Cuvântul original și versetul', 'Original word & verse')) + ' ›</button>' : '') +
-    '<small class="dsrc">Easton 1897' + (H ? ' · Hitchcock' : '') + (S.lang !== 'en' ? ' · ' + L('text original în engleză', 'English original') : '') + '</small>',
+    '<small class="dsrc">Easton 1897' + (H ? ' · Hitchcock' : '') + (S.lang !== 'en' && !dIsRo(hw) ? ' · ' + L('text original în engleză', 'English original') : '') + '</small>',
     p => { const f = p.querySelector('[data-dfull]'); if (f) f.onclick = () => { p.remove(); openDict(hw); }; p.querySelectorAll('[data-dorig]').forEach(o => o.onclick = () => { p.remove(); fallback(); }); const nv = p.querySelector('[data-dnave]'); if (nv) nv.onclick = () => { p.remove(); openNave(naveKey(hw)); }; });
 }
-function dictHtml(hw) {
-  const all = []; const H = DICT_H[hw];
-  const body = (DICT_E[hw] || []).map(h => {
+function dictHtml(hw, en) {
+  const all = []; const H = dMean(hw), ro = dIsRo(hw, en), canRo = dRO() && !!DICT_E_RO[hw];
+  const body = dParts(hw, en).map(h => {
     h = h.replace(/<a data-r="(\d+)\.(\d+)\.(\d+)">[^<]*<\/a>/g, (m, b, c, v) => { b = +b; c = +c - 1; v = +v - 1; if (b >= NB || c < 0 || c >= VC[b].length || v < 0 || v >= VC[b][c]) return ''; return '\u0001' + G(b, c, v) + '\u0002'; });
     h = h.replace(/\(?\s*(?:(?:Comp\.|comp\.|See|see)\s*)?(?:\u0001\d+\u0002[\s,;.]*(?:and|comp\.|Comp\.)?[\s,;]*)+\)?/g, run => {
       const gs = [...run.matchAll(/\u0001(\d+)\u0002/g)].map(x => +x[1]); if (!gs.length) return run;
       all.push(...gs); return '<sup class="fn" data-gs="' + gs.join(',') + '">*' + (gs.length > 1 ? gs.length : '') + '</sup> ';
     }).replace(/\s+(<sup)/g, '$1').replace(/\s+([,;.])/g, '$1');
-    return '<div class="xs"><div class="xh" lang="en">' + h + '</div></div>';
+    return '<div class="xs"><div class="xh" lang="' + (ro ? 'ro' : 'en') + '">' + h + '</div></div>';
   }).join('');
   const uniq = [...new Set(all)];
   return (H ? '<p class="dh"><b>' + L('Sensul numelui', 'Name meaning') + ' (Hitchcock):</b> ' + esc(H) + '</p>' : '') +
-    (S.lang !== 'en' ? '<p class="hint">' + L('Textul e deocamdată în engleză (originalul din 1897); traducerea în română vine într-o versiune următoare.', 'English original (1897).') + '</p>' : '') + body +
+    (S.lang !== 'en' && !canRo ? '<p class="hint">' + L('Textul e în engleză (originalul din 1897).', 'English original (1897).') + '</p>' : '') + body +
     '<div class="xbar">' + (uniq.length ? '<button class="xb" data-x="refs" data-gs="' + uniq.join(',') + '">* ' + L('Trimiteri', 'References') + ' <small>' + uniq.length + '</small></button>' : '') +
     (naveKey(hw) ? '<button class="xb" data-dnave="' + naveKey(hw) + '">' + L('Versete pe temă (Nave)', 'Topical verses (Nave)') + '</button>' : '') +
+    (canRo ? '<button class="xb" data-dlang>' + (ro ? L('Originalul (engleză)', 'Original (English)') : L('Traducerea în română', 'Romanian')) + '</button>' : '') +
     '<button class="xb" data-dsrc>' + L('Surse', 'Sources') + '</button></div>';
 }
 const DICT_SRC = () => '<div class="xsrcs"><p><b>M. G. Easton, <i>Illustrated Bible Dictionary</i></b>, ' + L('ed. a 3-a', '3rd ed.') + ', Thomas Nelson, 1897<br><small>' + L('domeniu public · dicționar biblic general', 'public domain · general Bible dictionary') + '</small></p>' +
   '<p><b>Roswell D. Hitchcock, <i>Hitchcock’s Bible Names Dictionary</i></b> ' + L('(din „New and Complete Analysis of the Holy Bible”, sec. XIX)', '(from “New and Complete Analysis of the Holy Bible”, 19th c.)') + '<br><small>' + L('domeniu public · sensul numelor proprii; etimologiile lui sunt adesea depășite', 'public domain · meaning of proper names; its etymologies are often dated') + '</small></p>' +
+  (window.DICT_E_RO ? '<p><small>' + L('Traducerea în română a articolelor, a sensurilor numelor și a temelor Nave e făcută pentru această aplicație; pentru citare folosește originalul englez.', 'The Romanian translation was made for this app; cite the English original.') + '</small></p>' : '') +
   '<p class="xlinks"><a href="https://github.com/garydavenport73/eastons-bible-dictionary-json" data-url>Easton · ' + L('text digital (GitHub)', 'digital text (GitHub)') + '</a><a href="https://github.com/BradyStephenson/bible-data" data-url>Hitchcock · BibleData (CC BY 4.0)</a><a href="https://www.biblegateway.com/resources/dictionaries/info/" data-url>Bible Gateway · ' + L('despre dicționare', 'about the dictionaries') + '</a></p></div>';
 function openDict(hw, push) {
   if (!window.DICT_E || !window.NAVE) { loadDict(e => !e && loadNave(() => openDict(hw, push))); return; }
-  openSheet(hw + ' · ' + L('Dicționar biblic', 'Bible dictionary'), '<div class="wext dict">' + dictHtml(hw) + '</div>', body => {
+  openSheet(dTitle(hw) + (dTitle(hw) !== hw ? ' (' + hw + ')' : '') + ' · ' + L('Dicționar biblic', 'Bible dictionary'), '<div class="wext dict">' + dictHtml(hw) + '</div>', body => {
     const box = body.querySelector('.wext'); bindExt(box, null, 'sheet');
-    box.addEventListener('click', e => { const hl = e.target.closest('[data-hw]'); if (hl) { e.stopPropagation(); openDict(hl.dataset.hw, true); return; } const nv = e.target.closest('[data-dnave]'); if (nv) { e.stopPropagation(); openNave(nv.dataset.dnave, true); return; } const s = e.target.closest('[data-dsrc]'); if (!s) return; e.stopPropagation(); fnPop(s, '<div class="fn-h">' + L('Surse', 'Sources') + '</div>' + DICT_SRC(), p => p.querySelectorAll('[data-url]').forEach(a => a.onclick = ev => { ev.preventDefault(); try { A && A.openUrl ? A.openUrl(a.href) : window.open(a.href, '_blank'); } catch (er) {} })); });
+    box.addEventListener('click', e => { const dl = e.target.closest('[data-dlang]'); if (dl) { e.stopPropagation(); box.dataset.en = box.dataset.en === '1' ? '' : '1'; box.innerHTML = dictHtml(hw, box.dataset.en === '1'); hap(0); return; } const hl = e.target.closest('[data-hw]'); if (hl) { e.stopPropagation(); openDict(hl.dataset.hw, true); return; } const nv = e.target.closest('[data-dnave]'); if (nv) { e.stopPropagation(); openNave(nv.dataset.dnave, true); return; } const s = e.target.closest('[data-dsrc]'); if (!s) return; e.stopPropagation(); fnPop(s, '<div class="fn-h">' + L('Surse', 'Sources') + '</div>' + DICT_SRC(), p => p.querySelectorAll('[data-url]').forEach(a => a.onclick = ev => { ev.preventDefault(); try { A && A.openUrl ? A.openUrl(a.href) : window.open(a.href, '_blank'); } catch (er) {} })); });
   }, push || sheetOpen());
 }
 function openDictSearch() {
   loadDict(err => { if (err) return;
-    openSheet(L('Dicționar biblic', 'Bible dictionary'), '<input class="search" id="dq" placeholder="' + L('Caută în dicționar (în engleză: Abraham, altar, tabernacle…)', 'Search the dictionary (Abraham, altar…)') + '" autocomplete="off"><div id="dres"></div><p class="hint">Easton 1897 · Hitchcock · ' + L('atinge un cuvânt dintr-un verset ca să-l deschizi direct', 'tap a word in a verse to open it directly') + '</p>', body => {
+    openSheet(L('Dicționar biblic', 'Bible dictionary'), '<input class="search" id="dq" placeholder="' + L('Caută în dicționar (Avraam, altar, cort…)', 'Search the dictionary (Abraham, altar…)') + '" autocomplete="off"><div id="dres"></div><p class="hint">Easton 1897 · Hitchcock · ' + L('atinge un cuvânt dintr-un verset ca să-l deschizi direct', 'tap a word in a verse to open it directly') + '</p>', body => {
       const q = body.querySelector('#dq'), res = body.querySelector('#dres'), keys = Object.keys(DICT_E).concat(Object.keys(DICT_H).filter(k => !DICT_E[k]));
-      const run = () => { const v = dNorm(q.value); if (!v) { res.innerHTML = ''; return; } const hit = keys.filter(k => dNorm(k).startsWith(v)).slice(0, 60);
-        res.innerHTML = hit.length ? hit.map(k => '<button class="mitem" data-hw="' + esc(k) + '"><b>' + esc(k) + '</b><small>' + esc((DICT_H[k] || '').slice(0, 40)) + '</small></button>').join('') : '<div class="empty">' + T('Niciun rezultat.') + '</div>';
+      const run = () => { const v = dNorm(q.value); if (!v) { res.innerHTML = ''; return; } const hit = keys.filter(k => dNorm(k).startsWith(v) || dNorm(dTitle(k)).startsWith(v)).slice(0, 60);
+        res.innerHTML = hit.length ? hit.map(k => '<button class="mitem" data-hw="' + esc(k) + '"><b>' + esc(dTitle(k)) + (dTitle(k) !== k ? ' <small>' + esc(k) + '</small>' : '') + '</b><small>' + esc((dMean(k) || '').slice(0, 40)) + '</small></button>').join('') : '<div class="empty">' + T('Niciun rezultat.') + '</div>';
         res.querySelectorAll('[data-hw]').forEach(b => b.onclick = () => DICT_E[b.dataset.hw] ? openDict(b.dataset.hw, true) : dictPop(b, { hw: b.dataset.hw })); };
       q.oninput = run; setTimeout(() => q.focus(), 60);
     }, sheetOpen());
@@ -1436,29 +1446,29 @@ function loadNave(cb) {
 const naveKey = hw => { if (!window.NAVE) return null; const k = String(hw).toUpperCase(); return NAVE[k] ? k : NAVE[k + 'S'] ? k + 'S' : null; };
 function naveG(r) { const [b, c, v] = r.split('.').map(Number); if (b >= NB || c < 1 || c > VC[b].length || v < 1 || v > VC[b][c - 1]) return -1; return G(b, c - 1, v - 1); }
 function openNave(subj, push) {
-  if (!window.NAVE) { loadNave(e => !e && openNave(subj, push)); return; }
+  if (!window.NAVE || (S.lang !== 'en' && !window.DICT_E)) { loadNave(e => !e && loadDict(() => openNave(subj, push))); return; }
   const it = NAVE[subj]; if (!it) return; const l = S.lang === 'en' ? 'en' : 'ro'; let n = 0;
-  const h = '<p class="hint">' + L('Orville J. Nave, <i>Nave’s Topical Bible</i>, 1896 · subtitlurile sunt în engleză (originalul)', 'Orville J. Nave, <i>Nave’s Topical Bible</i>, 1896') + '</p>' +
+  const h = '<p class="hint">' + L('Orville J. Nave, <i>Nave’s Topical Bible</i>, 1896' + (window.NAVE_L_RO ? ' · traducere pentru această aplicație' : ' · subtitlurile sunt în engleză (originalul)'), 'Orville J. Nave, <i>Nave’s Topical Bible</i>, 1896') + '</p>' +
     it.map(([t, r]) => {
-      if (r === '@') { const k = String(t).toUpperCase().split(',')[0].trim(); return NAVE[k] ? '<button class="mitem nv-see" data-nv="' + esc(k) + '">→ ' + esc(t) + '</button>' : '<div class="nv-t muted">→ ' + esc(t) + '</div>'; }
+      if (r === '@') { const k = String(t).toUpperCase().split(',')[0].trim(); return NAVE[k] ? '<button class="mitem nv-see" data-nv="' + esc(k) + '">→ ' + esc(nvName(k)) + '</button>' : '<div class="nv-t muted">→ ' + esc(nvLab(t)) + '</div>'; }
       const gs = r ? r.split(' ').map(naveG).filter(g => g >= 0) : []; n += gs.length;
-      return '<div class="nv-i">' + (t ? '<div class="nv-t">' + esc(t) + '</div>' : '') + (gs.length ? '<div class="chips">' + gs.slice(0, 40).map(g => '<button class="chip" data-x="' + g + '">' + esc(slabel(g, l)) + '</button>').join('') + (gs.length > 40 ? '<span class="muted"> +' + (gs.length - 40) + '</span>' : '') + '</div>' : '') + '</div>';
+      return '<div class="nv-i">' + (t ? '<div class="nv-t">' + esc(nvLab(t)) + '</div>' : '') + (gs.length ? '<div class="chips">' + gs.slice(0, 40).map(g => '<button class="chip" data-x="' + g + '">' + esc(slabel(g, l)) + '</button>').join('') + (gs.length > 40 ? '<span class="muted"> +' + (gs.length - 40) + '</span>' : '') + '</div>' : '') + '</div>';
     }).join('');
-  openSheet(subj.charAt(0) + subj.slice(1).toLowerCase() + ' · ' + L('Biblia pe teme', 'Topical Bible'), h, body => {
+  openSheet(nvName(subj) + ' · ' + L('Biblia pe teme', 'Topical Bible'), h, body => {
     body.querySelectorAll('[data-x]').forEach(b => b.onclick = () => openVerse(+b.dataset.x, true));
     body.querySelectorAll('[data-nv]').forEach(b => b.onclick = () => openNave(b.dataset.nv, true));
   }, push || sheetOpen());
 }
 function openNaveSearch() {
-  loadNave(err => { if (err) return;
-    openSheet(L('Biblia pe teme (Nave)', 'Topical Bible (Nave)'), '<input class="search" id="nq" placeholder="' + L('Caută o temă (în engleză: prayer, faith, Abraham…)', 'Search a topic (prayer, faith…)') + '" autocomplete="off"><div id="nres"></div><p class="hint">' + L('5.319 teme · ~78.000 de trimiteri · Nave 1896', '5,319 topics · Nave 1896') + '</p>', body => {
+  loadNave(err => { if (err) return; loadDict(() => {
+    openSheet(L('Biblia pe teme (Nave)', 'Topical Bible (Nave)'), '<input class="search" id="nq" placeholder="' + L('Caută o temă (rugăciune, credință, Avraam…)', 'Search a topic (prayer, faith…)') + '" autocomplete="off"><div id="nres"></div><p class="hint">' + L('5.319 teme · ~78.000 de trimiteri · Nave 1896', '5,319 topics · Nave 1896') + '</p>', body => {
       const q = body.querySelector('#nq'), res = body.querySelector('#nres'), keys = Object.keys(NAVE);
-      q.oninput = () => { const v = q.value.trim().toUpperCase(); if (!v) { res.innerHTML = ''; return; } const hit = keys.filter(k => k.startsWith(v)).concat(keys.filter(k => !k.startsWith(v) && k.includes(v))).slice(0, 60);
-        res.innerHTML = hit.length ? hit.map(k => '<button class="mitem" data-nv="' + esc(k) + '"><b>' + esc(k.charAt(0) + k.slice(1).toLowerCase()) + '</b><small>' + NAVE[k].length + '</small></button>').join('') : '<div class="empty">' + T('Niciun rezultat.') + '</div>';
+      q.oninput = () => { const v = dNorm(q.value); if (!v) { res.innerHTML = ''; return; } const nk = k => dNorm(k), nr = k => dNorm(nvName(k)); const hit = keys.filter(k => nk(k).startsWith(v) || nr(k).startsWith(v)).concat(keys.filter(k => !(nk(k).startsWith(v) || nr(k).startsWith(v)) && (nk(k).includes(v) || nr(k).includes(v)))).slice(0, 60);
+        res.innerHTML = hit.length ? hit.map(k => '<button class="mitem" data-nv="' + esc(k) + '"><b>' + esc(nvName(k)) + '</b><small>' + NAVE[k].length + '</small></button>').join('') : '<div class="empty">' + T('Niciun rezultat.') + '</div>';
         res.querySelectorAll('[data-nv]').forEach(b => b.onclick = () => openNave(b.dataset.nv, true)); };
       setTimeout(() => q.focus(), 60);
     }, sheetOpen());
-  });
+  }); });
 }
 /* Names of God: Romanian wording from the Cornilescu verse itself; original word and Strong number from the app's lexicon; article from Easton */
 const GNAMES = [
