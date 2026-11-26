@@ -1,6 +1,6 @@
 (function () {
 'use strict';
-const APP_VER = '8.6';
+const APP_VER = '8.7';
 const $ = s => document.querySelector(s);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const A = window.Android || null;
@@ -2485,11 +2485,18 @@ function loadChron(cb) {
   if (window.CHRON) { cb && cb(); return; }
   if (chronCbs) { cb && chronCbs.push(cb); return; }
   chronCbs = cb ? [cb] : []; const sc = document.createElement('script'); sc.src = 'chron.js';
-  sc.onload = () => { Object.assign(window.CTX_SRC = window.CTX_SRC || {}, CHRON.src); const c = chronCbs; chronCbs = null; c.forEach(f => f()); };
+  const fin = () => { Object.assign(window.CTX_SRC = window.CTX_SRC || {}, CHRON.src); crLang(); const c = chronCbs; chronCbs = null; c.forEach(f => f()); };
+  sc.onload = () => { const e = document.createElement('script'); e.src = 'chron_en.js'; e.onload = fin; e.onerror = fin; document.head.appendChild(e); };
   sc.onerror = () => { chronCbs = null; };
   document.head.appendChild(sc);
 }
 const CR = { mode: 'm', late: false, sc: 1.2, sel: null };
+/* Chronology language: the data is Romanian; CHRON_EN maps "RO name|start year" -> [English name, English note]. */
+function crLang() {
+  if (!window.CHRON) return; const en = UI_EN && window.CHRON_EN, E = window.CHRON_EN || {};
+  ['it', 'gi'].forEach(k => CHRON[k].forEach(it => { if (it._ro == null) it._ro = [it[0], it[9]]; const t = en && E.it[it._ro[0] + '|' + it[2]]; it[0] = t ? t[0] : it._ro[0]; it[9] = t ? (t[1] || '') : it._ro[1]; }));
+  ['eras', 'geras'].forEach(k => CHRON[k].forEach(e => { if (e._ro == null) e._ro = e[0]; e[0] = en && E.eras[e._ro] ? E.eras[e._ro] : e._ro; }));
+}
 const BOOKY = [-2000, -1446, -1445, -1430, -1406, -1400, -1200, -1100, -1050, -1000, -950, -800, -1000, -850, -458, -445, -479, -1900, -1000, -950, -950, -950, -720, -600, -586, -590, -560, -750, -800, -760, -586, -780, -720, -650, -605, -630, -520, -520, -430, 28, 28, 28, 28, 45, 57, 55, 56, 49, 61, 61, 61, 51, 51, 63, 66, 63, 61, 66, 48, 64, 66, 90, 90, 90, 70, 95];
 function crAdj(y) { if (!CR.late || CR.mode !== 'm') return y; if (y < -1446) return y + 186; if (y < -1050) return -1260 + (y + 1446) * (210 / 396); return y; }
 function crA(it, y) { return it[5] === 'W' ? y : crAdj(y); }
@@ -2605,6 +2612,7 @@ function crSearch(q) {
 function openChron(atYear) {
   crClose();
   loadChron(() => loadPeople(() => {
+    crLang();
     const el = document.createElement('div'); el.id = 'chron';
     el.innerHTML = '<div class="cr-top"><button class="cr-ib" id="crX" aria-label="' + L('Închide', 'Close') + '">‹</button><b>' + L('Cronologie biblică', 'Biblical chronology') + '</b>' +
       '<div class="cr-q"><input id="crQ" placeholder="' + L('Caută om sau eveniment…', 'Search person or event…') + '" autocomplete="off" enterkeyhint="search"><div class="cr-res hidden" id="crRes"></div></div></div>' +
