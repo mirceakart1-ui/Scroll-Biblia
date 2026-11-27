@@ -1,6 +1,6 @@
 (function () {
 'use strict';
-const APP_VER = '8.9';
+const APP_VER = '9.0';
 const $ = s => document.querySelector(s);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const A = window.Android || null;
@@ -455,9 +455,20 @@ function ttsStart() {
   }
   TTS.on = true; refresh(); ttsSpeakCur(); toast(T('🔊 Citire cu voce – ') + (S.lang === 'en' ? T('engleză (KJV)') : S.lang === 'both' ? T('română + engleză') : T('română (Cornilescu)')));
 }
-function ttsStop() { TTS.on = false; TTS.q = []; TTS.g = -1; try { A && A.ttsStop ? A.ttsStop() : window.speechSynthesis && speechSynthesis.cancel(); } catch (e) {} refresh(); }
+/* plan + read aloud: count each spoken verse, dim screen after 4 verses, stop at the end of the day's reading */
+const PA = { n: 0, scr: false };
+function planAudioScr(on) {
+  if (!on) { if (PA.scr) { PA.scr = false; if (!SLEEP.on) sleepScreen(false); } return; }
+  if (SLEEP.on) return; PA.scr = true; sleepScreen(true); planAudioTick();
+}
+function planAudioTick() {
+  const s = $('#sleepScr'); if (!PA.scr || !s) return; s.classList.add('pa'); const it = itemAt(cur()); if (!it || !S.plan) return;
+  const pd = planData(S.plan), d = pd.dayOf[it.pix], a = pd.dayStart[d], e = d + 1 < pd.days.length ? pd.dayStart[d + 1] : pd.verses.length, l = S.lang === 'en' ? 'en' : 'ro', g = curG();
+  s.querySelector('.ss-v').textContent = txt(g, l); s.querySelector('.ss-r').textContent = label(g, l) + ' · ' + L('Ziua ', 'Day ') + (d + 1) + ' · ' + (it.pix - a + 1) + '/' + (e - a);
+}
+function ttsStop() { PA.n = 0; planAudioScr(false); TTS.on = false; TTS.q = []; TTS.g = -1; try { A && A.ttsStop ? A.ttsStop() : window.speechSynthesis && speechSynthesis.cancel(); } catch (e) {} refresh(); }
 function ttsSpeakCur() {
-  if (!TTS.on) return; const g = curG(); TTS.g = g;
+  if (!TTS.on) return; const g = curG(); TTS.g = g; planAudioTick();
   if (S.lang === 'both' && !WEB) { ttsStop(); return; }
   TTS.q = [[S.lang === 'en' ? 'en' : 'ro', txt(g, S.lang === 'en' ? 'en' : 'ro')]];
   ttsNext();
@@ -466,6 +477,9 @@ function ttsNext() {
   if (!TTS.on) return;
   const it = TTS.q.shift();
   if (!it) { // verse finished -> next verse
+    if (mode === T('plan') && S.plan) { const pi = itemAt(cur()); if (pi && pi.g === TTS.g) { countRead(TTS.g); const pd = planData(S.plan), d = pd.dayOf[pi.pix];
+      if (pi.pix + 1 >= pd.verses.length || pd.dayOf[pi.pix + 1] !== d) { ttsStop(); sleepEnd(true); toast('✓ ' + L('Ziua ', 'Day ') + (d + 1) + L(' citită · audio oprit', ' read · audio stopped')); haptic(); return; }
+      if (++PA.n === 4) planAudioScr(true); } }
     if (SLEEP.on && SLEEP.chap > 0) { const r0 = ref(curG()), r1 = ref(Math.min(TOTAL - 1, curG() + 1)); if ((r0.c !== r1.c || r0.b !== r1.b) && --SLEEP.left <= 0) { sleepEnd(); return; } }
     setTimeout(() => { if (TTS.on && !sheetOpen()) go(1); else if (TTS.on) ttsSpeakCur(); }, 450); return;
   }
@@ -3263,7 +3277,7 @@ if (WEB && IOS && !STANDALONE && !S.instHint) { S.instHint = 1; persist(); setTi
 try { const wm = document.createElement('div'); wm.id = 'verWm'; wm.textContent = 'V' + APP_VER; document.body.appendChild(wm); } catch (e) {}
 if (S.onv) { delete S.onv; persist(); }
 ['ro', 'en'].forEach(l => { const v = (S.ver || {})[l]; if (v && VVAR[v]) loadVer(v, () => refresh()); });
-window.__t = { rc: () => readCount, openVersions, curVer, alignRo, loadAlign, openNave, openGodNames, loadNave, openDict, openDictSearch, dMatch, dVerse, loadDict, openChron, crZoomTo, openPerson, openMap, loadGeo, placesInChapter, loadPeople, openCtx, placeCard, stNavGo: g => { STUDY.g = g; STUDY.sel = []; stRenderBible(); }, G, stStrongPv, openWord, openStudy, closeStudy, stInsert, closeSheet, closePlans, openPlanDetail, openVerse, openWord, requestA11y }; window.__dbg = () => ({ mode, fy: FY.i, n: FY.items.length, pl: PL.i, wl: wheelLock - Date.now() }); syncGate(); try { A && A.ready && A.ready(); } catch (e) {}
+window.__t = { rc: () => readCount, ttsStart, openVersions, curVer, alignRo, loadAlign, openNave, openGodNames, loadNave, openDict, openDictSearch, dMatch, dVerse, loadDict, openChron, crZoomTo, openPerson, openMap, loadGeo, placesInChapter, loadPeople, openCtx, placeCard, stNavGo: g => { STUDY.g = g; STUDY.sel = []; stRenderBible(); }, G, stStrongPv, openWord, openStudy, closeStudy, stInsert, closeSheet, closePlans, openPlanDetail, openVerse, openWord, requestA11y }; window.__dbg = () => ({ mode, fy: FY.i, n: FY.items.length, pl: PL.i, wl: wheelLock - Date.now() }); syncGate(); try { A && A.ready && A.ready(); } catch (e) {}
 setTimeout(() => loadLex(), 2500);
 })();
 
