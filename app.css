@@ -991,3 +991,4 @@ html.day #verWm{color:#1f1d26}
 .ref .onvl{opacity:.6;font-size:.85em;margin-left:2px;cursor:pointer;padding:6px 2px}
 #top .tr{display:flex;align-items:center;gap:2px}#top .uil{font:700 13px/1 system-ui,sans-serif;letter-spacing:.05em;color:inherit;border:0;background:transparent;opacity:.85}#top .uil::after{content:"⇄";font-size:10px;margin-left:2px;opacity:.6}
 #sleepScr.pa [data-s="more"]{display:none}
+.st-dl{font-size:17px;opacity:.7}

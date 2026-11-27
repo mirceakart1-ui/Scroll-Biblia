@@ -1,6 +1,6 @@
 (function () {
 'use strict';
-const APP_VER = '9.1';
+const APP_VER = '9.2';
 const $ = s => document.querySelector(s);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const A = window.Android || null;
@@ -3182,15 +3182,30 @@ function stSave(now) {
 }
 
 /* ---------- notes list / templates / more ---------- */
+/* notes -> Word (.doc = HTML that Word/Google Docs/LibreOffice open directly) */
+function saveBlob(name, blob) {
+  try { if (A && A.saveFile) { const rd = new FileReader(); rd.onload = () => A.saveFile(name, rd.result.split(',')[1]); rd.readAsDataURL(blob); return; } } catch (e) {}
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
+}
+function noteDocHtml(n) { const d = document.createElement('div'); d.innerHTML = n.h || ''; d.querySelectorAll('button,script,[contenteditable=false] button').forEach(x => x.remove()); return d.innerHTML; }
+function exportNotesDoc(list) {
+  const css = 'body{font-family:Calibri,Arial,sans-serif;font-size:12pt;line-height:1.45}h1{font-size:20pt;color:#7a4b00}h2{font-size:15pt;color:#7a4b00}h3{font-size:13pt}.nv{border-left:3pt solid #c58a1d;padding:4pt 10pt;margin:8pt 0;background:#fbf4e6}.nv b,.nv .r{color:#7a4b00}blockquote{border-left:3pt solid #ccc;margin:6pt 0;padding-left:10pt;color:#444}.pg{page-break-after:always}small{color:#777}';
+  const body = list.map((n, i) => (i ? '<br clear=all style="mso-special-character:line-break;page-break-before:always">' : '') + '<div>' + noteDocHtml(n) + '<p><small>' + L('Scroll Biblia · notiță din ', 'Scroll Biblia · note from ') + new Date(n.u).toLocaleDateString(UI_EN ? 'en-GB' : 'ro-RO') + '</small></p></div>').join('');
+  const html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><title>Scroll Biblia</title><style>' + css + '</style></head><body>' + body + '</body></html>';
+  const nm = (list.length === 1 ? stTitle(list[0]).replace(/[\\/:*?"<>|]+/g, '').slice(0, 50).trim() || 'notita' : L('notite-scroll-biblia-', 'scroll-biblia-notes-') + today()) + '.doc';
+  saveBlob(nm, new Blob(['\ufeff', html], { type: 'application/msword' })); toast(L('Se descarcă ', 'Downloading ') + nm);
+}
 function stOpenList() {
   stSave(true);
   const ns = stNotes().slice().sort((a, b) => b.u - a.u);
-  const h = '<button class="btn" id="stNew2">' + I.plus + ' ' + L('Foaie nouă', 'New sheet') + '</button>' +
-    ns.map(n => '<div class="st-li ' + (n.id === S.noteCur ? 'cur' : '') + '" data-id="' + n.id + '"><div><b>' + esc(stTitle(n)) + '</b><small>' + new Date(n.u).toLocaleDateString(UI_EN ? 'en-GB' : 'ro-RO', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) + ' · ' + ((n.h.match(/class="nv"/g) || []).length) + L(' versete', ' verses') + '</small></div><button class="st-del" data-del="' + n.id + '">' + I.trash + '</button></div>').join('');
+  const h = '<button class="btn" id="stNew2">' + I.plus + ' ' + L('Foaie nouă', 'New sheet') + '</button>' + (ns.length ? '<button class="btn ghost" id="stDocAll">⬇ ' + L('Descarcă toate foile (.doc)', 'Download all sheets (.doc)') + '</button>' : '') +
+    ns.map(n => '<div class="st-li ' + (n.id === S.noteCur ? 'cur' : '') + '" data-id="' + n.id + '"><div><b>' + esc(stTitle(n)) + '</b><small>' + new Date(n.u).toLocaleDateString(UI_EN ? 'en-GB' : 'ro-RO', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) + ' · ' + ((n.h.match(/class="nv"/g) || []).length) + L(' versete', ' verses') + '</small></div><button class="st-del st-dl" data-dx="' + n.id + '" aria-label="Word">⬇</button><button class="st-del" data-del="' + n.id + '">' + I.trash + '</button></div>').join('');
   openSheet(L('Foile mele', 'My sheets'), h, body => {
     body.querySelector('#stNew2').onclick = () => stNewSheet();
+    const da = body.querySelector('#stDocAll'); if (da) da.onclick = () => exportNotesDoc(ns);
+    body.querySelectorAll('[data-dx]').forEach(b => b.onclick = () => exportNotesDoc(ns.filter(n => n.id === b.dataset.dx)));
     body.querySelectorAll('.st-li').forEach(x => x.onclick = e => {
-      if (e.target.closest('[data-del]')) return;
+      if (e.target.closest('[data-del],[data-dx]')) return;
       S.noteCur = x.dataset.id; persist(); closeSheet(); openStudy();
     });
     body.querySelectorAll('[data-del]').forEach(b => b.onclick = () => {
