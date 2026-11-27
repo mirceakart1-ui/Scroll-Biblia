@@ -1,6 +1,6 @@
 (function () {
 'use strict';
-const APP_VER = '9.0';
+const APP_VER = '9.1';
 const $ = s => document.querySelector(s);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const A = window.Android || null;
@@ -2000,6 +2000,99 @@ function openMenu() {
 }
 let confirmK = '', confirmT = 0;
 function confirmTwice(k) { const n = Date.now(); if (confirmK === k && n - confirmT < 3000) { confirmK = ''; return true; } confirmK = k; confirmT = n; toast(T('Apasă încă o dată pentru confirmare')); return false; }
+/* ---------- progress sync (Google Drive appDataFolder) + backup file ----------
+   Three-way merge against the last synced copy, so deletions on one device are kept on the other. */
+const SYNC_FILE = 'scroll-biblia.json', SYNC_BASE = KEY + '.syncBase', GCID_DEF = '';
+const SYNC = { tok: null, exp: 0, tc: null, busy: false, t: 0 };
+const gcid = () => S.gcid || GCID_DEF;
+function syncPayload() { return { v: 1, at: Date.now(), bits: S.bits, days: S.days, total: S.total, liked: S.liked, saved: S.saved, cols: S.cols || [], notes: S.notes || [], plans: S.plans || {}, plan: S.plan || null, readPos: S.readPos, lastCol: S.lastCol || null, recent: S.recent || [] }; }
+const sj = x => JSON.stringify(x === undefined ? null : x);
+function m3map(l, r, b) { l = l || {}; r = r || {}; b = b || {}; const o = {};
+  new Set([...Object.keys(l), ...Object.keys(r)]).forEach(k => { const inL = k in l, inR = k in r, inB = k in b;
+    if (inB && !inL) { if (inR && sj(r[k]) !== sj(b[k])) o[k] = r[k]; return; } if (inB && !inR) { if (inL && sj(l[k]) !== sj(b[k])) o[k] = l[k]; return; }
+    o[k] = inL && (!inR || sj(l[k]) !== sj(b[k])) ? l[k] : r[k]; }); return o; }
+function m3arr(l, r, b, mergeItem) { const ix = a => Object.fromEntries((a || []).filter(x => x && x.id).map(x => [x.id, x]));
+  const L0 = ix(l), R0 = ix(r), B0 = ix(b), M = m3map(L0, R0, B0);
+  if (mergeItem) Object.keys(M).forEach(k => { if (L0[k] && R0[k]) M[k] = mergeItem(L0[k], R0[k], B0[k]); });
+  const order = [...(l || []), ...(r || [])].map(x => x && x.id).filter((k, i, a) => k && M[k] && a.indexOf(k) === i); return order.map(k => M[k]); }
+function orB64(a, b) { if (!a) return b; if (!b) return a; try { const x = atob(a), y = atob(b); let o = ''; for (let i = 0; i < Math.max(x.length, y.length); i++) o += String.fromCharCode((x.charCodeAt(i) || 0) | (y.charCodeAt(i) || 0)); return btoa(o); } catch (e) { return a; } }
+const addMap = (l, r) => Object.assign({}, r || {}, l || {});
+function addArr(l, r, pick) { const M = {}; (r || []).forEach(x => x && x.id && (M[x.id] = x)); (l || []).forEach(x => { if (!x || !x.id) return; M[x.id] = M[x.id] ? pick(x, M[x.id]) : x; });
+  const order = [...(l || []), ...(r || [])].map(x => x && x.id).filter((k, i, a) => k && a.indexOf(k) === i); return order.map(k => M[k]); }
+function syncMerge(L, R, B) {
+  B = B || {}; const days = Object.assign({}, R.days); Object.keys(L.days || {}).forEach(k => days[k] = Math.max(days[k] || 0, L.days[k]));
+  const plans = Object.assign({}, R.plans); Object.keys(L.plans || {}).forEach(id => { const a = L.plans[id], c = plans[id]; if (!c) { plans[id] = a; return; }
+    plans[id] = Object.assign({}, c, a, { start: a.start < c.start ? a.start : c.start, done: Object.assign({}, c.done, a.done), pos: Math.max(a.pos || 0, c.pos || 0), rb: orB64(a.rb, c.rb) }); });
+  const sc = k => sj(L[k]) !== sj(B[k]) ? L[k] : R[k]; /* active plan / last position: the most recently changed device wins */
+  return { bits: orB64(L.bits, R.bits), days, total: Math.max(L.total || 0, R.total || 0), liked: addMap(L.liked, R.liked), saved: addMap(L.saved, R.saved),
+    cols: addArr(L.cols, R.cols, (a, c) => Object.assign({}, c, a, { items: addMap(a.items, c.items) })),
+    notes: addArr(L.notes, R.notes, (a, c) => (a.u || 0) >= (c.u || 0) ? a : c), plans, plan: sc('plan'), readPos: sc('readPos'), lastCol: sc('lastCol'), recent: [...new Set([...(R.recent || []), ...(L.recent || [])])].slice(-600) };
+}
+function syncApply(M) {
+  const reload = M.bits !== S.bits; Object.assign(S, M); try { localStorage.setItem(KEY, JSON.stringify(S)); localStorage.setItem(SYNC_BASE, JSON.stringify(syncPayload())); } catch (e) {}
+  for (const k in PBITS) delete PBITS[k]; return reload;
+}
+function gisLoad(cb) { if (window.google && google.accounts && google.accounts.oauth2) return cb(); const s = document.createElement('script'); s.src = 'https://accounts.google.com/gsi/client'; s.onload = cb; s.onerror = () => toast(L('Nu mă pot conecta la Google (verifică internetul)', 'Cannot reach Google')); document.head.appendChild(s); }
+function gToken(interactive, cb) {
+  if (SYNC.tok && Date.now() < SYNC.exp - 60000) return cb(SYNC.tok);
+  if (!gcid()) { if (interactive) openSyncSetup(); return; }
+  if (!WEB) { if (interactive) toast(L('Sincronizarea Google merge din browser (linkul aplicației). În APK folosește Export / Import.', 'Google sync works in the browser version.')); return; }
+  gisLoad(() => { try {
+    SYNC.tc = SYNC.tc || google.accounts.oauth2.initTokenClient({ client_id: gcid(), scope: 'https://www.googleapis.com/auth/drive.appdata', callback: () => {} });
+    SYNC.tc.callback = r => { if (r && r.access_token) { SYNC.tok = r.access_token; SYNC.exp = Date.now() + (r.expires_in || 3600) * 1000; S.gsync = 1; persist(); cb(SYNC.tok); } else if (interactive) toast(L('Conectarea a fost anulată', 'Sign-in cancelled')); };
+    SYNC.tc.error_callback = () => { if (interactive) toast(L('Conectarea a fost anulată', 'Sign-in cancelled')); };
+    SYNC.tc.requestAccessToken({ prompt: interactive && !S.gsync ? 'consent' : '' });
+  } catch (e) { toast('Google: ' + e.message); } });
+}
+async function gFetch(url, opt) { const r = await fetch(url, Object.assign({}, opt, { headers: Object.assign({ Authorization: 'Bearer ' + SYNC.tok }, (opt || {}).headers) })); if (r.status === 401) { SYNC.tok = null; throw new Error('auth'); } if (!r.ok) throw new Error('HTTP ' + r.status); return r; }
+function syncNow(interactive) {
+  if (SYNC.busy) return; gToken(interactive, async () => { SYNC.busy = true; syncUi('…');
+    try {
+      const q = encodeURIComponent("name='" + SYNC_FILE + "'");
+      const list = await (await gFetch('https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&fields=files(id,modifiedTime)&q=' + q)).json();
+      const f = (list.files || [])[0]; let R = null; if (f) R = await (await gFetch('https://www.googleapis.com/drive/v3/files/' + f.id + '?alt=media')).json();
+      let B = null; try { B = JSON.parse(localStorage.getItem(SYNC_BASE) || 'null'); } catch (e) {}
+      const L0 = syncPayload(), M = R ? syncMerge(L0, R, B) : L0; const reload = R ? syncApply(M) : (localStorage.setItem(SYNC_BASE, JSON.stringify(L0)), false);
+      const body = JSON.stringify(Object.assign(syncPayload(), { at: Date.now() }));
+      if (f) await gFetch('https://www.googleapis.com/upload/drive/v3/files/' + f.id + '?uploadType=media', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body });
+      else { const fd = new FormData(); fd.append('metadata', new Blob([JSON.stringify({ name: SYNC_FILE, parents: ['appDataFolder'] })], { type: 'application/json' })); fd.append('file', new Blob([body], { type: 'application/json' })); await gFetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', { method: 'POST', body: fd }); }
+      S.syncAt = Date.now(); persist(); syncUi();
+      if (interactive) toast('☁ ' + L('Progres sincronizat', 'Progress synced')); if (reload && R) { BITS.set(new Uint8Array([...atob(S.bits || '')].map(c => c.charCodeAt(0))).subarray(0, BITS.length)); readCount = 0; for (let i = 0; i < BITS.length; i++) { let x = BITS[i]; while (x) { readCount += x & 1; x >>= 1; } } updateStats(); refresh(); }
+    } catch (e) { syncUi('!'); if (e.message === 'auth') { if (interactive) syncNow(true); } else if (interactive) toast(L('Sincronizarea a eșuat: ', 'Sync failed: ') + e.message); }
+    SYNC.busy = false; });
+}
+function syncUi(st) { const el = document.getElementById('syncSt'); if (el) el.textContent = st === '…' ? L('se sincronizează…', 'syncing…') : st === '!' ? L('eroare – încearcă din nou', 'error – try again') : S.syncAt ? L('ultima sincronizare: ', 'last sync: ') + new Date(S.syncAt).toLocaleString(UI_EN ? 'en-GB' : 'ro-RO', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : L('nesincronizat', 'not synced'); }
+function syncAuto() { if (!S.gsync || !gcid() || !WEB) return; clearTimeout(SYNC.t); SYNC.t = setTimeout(() => syncNow(false), 4000); }
+document.addEventListener('visibilitychange', () => { if (document.hidden) { if (S.gsync && SYNC.tok && WEB) syncNow(false); } else syncAuto(); });
+setInterval(() => { if (S.gsync && SYNC.tok && WEB && !document.hidden) syncNow(false); }, 10 * 60000);
+setTimeout(syncAuto, 2500);
+window.onSaved = ok => toast(ok ? L('✓ Fișier salvat', '✓ File saved') : L('Nu s-a putut salva', 'Could not save'));
+function exportProgress() {
+  const blob = new Blob([JSON.stringify(Object.assign(syncPayload(), { app: 'Scroll Biblia' }))], { type: 'application/json' }); const name = 'scroll-biblia-progres-' + today() + '.json';
+  try { if (A && A.saveFile) { const rd = new FileReader(); rd.onload = () => A.saveFile(name, rd.result.split(',')[1]); rd.readAsDataURL(blob); return; } } catch (e) {}
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+}
+function importProgress() {
+  const i = document.createElement('input'); i.type = 'file'; i.accept = 'application/json,.json';
+  i.onchange = () => { const f = i.files[0]; if (!f) return; const rd = new FileReader(); rd.onload = () => { try { const R = JSON.parse(rd.result); if (!R || !('bits' in R)) throw 0;
+    syncApply(syncMerge(syncPayload(), R, {})); toast(L('Progres importat și combinat ✓', 'Progress imported ✓')); setTimeout(() => location.reload(), 700); } catch (e) { toast(L('Fișierul nu e o copie Scroll Biblia', 'Not a Scroll Biblia backup')); } }; rd.readAsText(f); };
+  i.click();
+}
+function openSyncSetup() {
+  openSheet(L('Sincronizare telefon ↔ PC', 'Sync phone ↔ PC'),
+    '<p class="hint">' + L('Progresul (versete citite, planuri, salvate, colecții, notițe) se păstrează într-un dosar ascuns al aplicației din <b>Google Drive-ul tău</b>. Nimeni altcineva nu-l vede. Te conectezi o dată pe fiecare dispozitiv, cu același cont.', 'Progress is kept in a hidden app folder in <b>your Google Drive</b>.') + '</p>' +
+    '<div class="row"><span>☁ Google Drive<br><small class="muted" id="syncSt"></small></span><button class="btn" id="gsNow" style="margin:0">' + (S.gsync ? L('Sincronizează', 'Sync now') : L('Conectează', 'Connect')) + '</button></div>' +
+    (S.gsync ? '<button class="mitem" id="gsOff">' + L('Deconectează Google Drive pe acest dispozitiv', 'Disconnect on this device') + '</button>' : '') +
+    (!WEB ? '<p class="hint">' + L('În aplicația APK Google nu permite conectarea; deschide linkul aplicației în Chrome sau folosește Export / Import mai jos.', 'In the APK use Export / Import below.') + '</p>' : '') +
+    '<div class="sec">' + L('Fără cont', 'Without an account') + '</div>' +
+    '<button class="mitem" id="pxExp">⬇ ' + L('Exportă progresul (fișier)', 'Export progress (file)') + '</button><button class="mitem" id="pxImp">⬆ ' + L('Importă și combină progresul', 'Import & merge progress') + '</button>' +
+    '<details class="hint" style="margin-top:14px"><summary>' + L('Setare tehnică: Google Client ID', 'Technical: Google Client ID') + '</summary><input class="search" id="gcidIn" placeholder="xxxx.apps.googleusercontent.com" value="' + esc(S.gcid || '') + '"><button class="btn ghost" id="gcidSave">' + L('Salvează', 'Save') + '</button></details>',
+    body => { syncUi(); body.querySelector('#gsNow').onclick = () => syncNow(true);
+      const off = body.querySelector('#gsOff'); if (off) off.onclick = () => { S.gsync = 0; SYNC.tok = null; persist(); try { google.accounts.oauth2.revoke && SYNC.tok && google.accounts.oauth2.revoke(SYNC.tok); } catch (e) {} closeSheet(); toast(L('Deconectat', 'Disconnected')); };
+      body.querySelector('#pxExp').onclick = exportProgress; body.querySelector('#pxImp').onclick = importProgress;
+      body.querySelector('#gcidSave').onclick = () => { S.gcid = body.querySelector('#gcidIn').value.trim(); SYNC.tc = null; persist(); toast('OK'); };
+    }, sheetOpen());
+}
 function openSettings() {
   const seg = (k, opts) => '<div class="seg">' + opts.map(([v, t]) => '<button data-k="' + k + '" data-v="' + v + '" class="' + (S[k] === v ? 'on' : '') + '">' + t + '</button>').join('') + '</div>';
   const h = '<div class="row"><span>🌐 English interface<br><small class="muted">' + (UI_EN ? 'Menus and buttons in English' : 'Meniuri și butoane în engleză') + '</small></span><button class="sw ' + (UI_EN ? 'on' : '') + '" id="uien"></button></div>' +
@@ -2008,6 +2101,7 @@ function openSettings() {
     '<div class="row"><span>' + L('Mod studiu la pornire', 'Study mode on start') + '</span>' + stAutoSeg() + '</div>' +
     '<button class="mitem" id="toRem">' + I.bell + L('Mementouri de citire', 'Reading reminders') + '<small>' + remSummary() + ' ›</small></button>' +
     T('<div class="row"><span>Mărime text</span><input type="range" id="fs" min="0.8" max="1.4" step="0.05" value="') + S.fs + '"></div>' +
+    '<button class="mitem" id="toSync">☁ ' + L('Sincronizare telefon ↔ PC', 'Sync phone ↔ PC') + '<small>' + (S.gsync ? 'Google Drive ✓' : '') + ' ›</small></button>' +
     '<button class="mitem" id="toPriv">' + I.shield + T('Confidențialitate și siguranță<small>›</small></button>') +
     '<button class="mitem" id="toVoice">' + I.speaker + T('Voce pentru citire<small>›</small></button>') +
     T('<div class="row"><span>Vibrație la atingere</span><button class="sw ') + (S.haptics ? 'on' : '') + '" id="hap"></button></div>' +
@@ -2022,7 +2116,7 @@ function openSettings() {
     body.querySelector('#fs').oninput = e => { S.fs = +e.target.value; persist(); refresh(); };
     const tb = body.querySelector('#toBlock'); tb && (tb.onclick = () => openBlock());
     body.querySelector('#toVoice').onclick = () => openVoicePicker();
-    body.querySelector('#toPriv').onclick = () => openPrivacy();
+    body.querySelector('#toPriv').onclick = () => openPrivacy(); body.querySelector('#toSync').onclick = () => openSyncSetup();
     body.querySelectorAll('[data-md]').forEach(b => b.onclick = () => { S.mode = b.dataset.md; persist(); applyTheme(); haptic(); body.querySelectorAll('[data-md]').forEach(x => x.classList.toggle('on', x === b)); });
     body.querySelector('#uien').onclick = e => { S.uiLang = UI_EN ? 'ro' : 'en'; e.target.classList.toggle('on', S.uiLang === 'en'); try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (x) {} try { A && A.setUiLang && A.setUiLang(S.uiLang); } catch (x) {} toast(S.uiLang === 'en' ? 'Switching to English…' : 'Se trece pe română…'); setTimeout(() => location.reload(), 350); };
     body.querySelector('#hap').onclick = e => { S.haptics = !S.haptics; e.target.classList.toggle('on', S.haptics); persist(); };
