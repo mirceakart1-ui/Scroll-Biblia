@@ -1,6 +1,6 @@
 (function () {
 'use strict';
-const APP_VER = '9.2';
+const APP_VER = '9.3';
 const $ = s => document.querySelector(s);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const A = window.Android || null;
@@ -2618,7 +2618,7 @@ function crAdj(y) { if (!CR.late || CR.mode !== 'm') return y; if (y < -1446) re
 function crA(it, y) { return it[5] === 'W' ? y : crAdj(y); }
 function crYear(y) { if (CR.mode === 'g') return L('anul ', 'year ') + Math.round(y) + L(' al lumii', ' AM'); y = Math.round(y); return y < 0 ? -y + L(' î.Hr.', ' BC') : y + L(' d.Hr.', ' AD'); }
 function crItems() { return CR.mode === 'g' ? CHRON.gi : CHRON.it; }
-const CR_G = { E: ['Evenimente biblice', 'Biblical events'], W: ['Istoria lumii · în același timp', 'World history · at the same time'], P: ['Patriarhi, conducători, judecători', 'Patriarchs, leaders, judges'], U: ['Regatul unit', 'United kingdom'], J: ['Împărații lui Iuda', 'Kings of Judah'], I: ['Împărații lui Israel', 'Kings of Israel'], R: ['Prooroci', 'Prophets'], X: ['Imperii și conducători străini', 'Empires and foreign rulers'], N: ['Noul Testament', 'New Testament'] };
+const CR_G = { '*': ['Cronologie biblică · Geneza – Apocalipsa', 'Biblical timeline · Genesis – Revelation'], E: ['Evenimente biblice', 'Biblical events'], W: ['Istoria lumii · în același timp', 'World history · at the same time'], P: ['Patriarhi, conducători, judecători', 'Patriarchs, leaders, judges'], U: ['Regatul unit', 'United kingdom'], J: ['Împărații lui Iuda', 'Kings of Judah'], I: ['Împărații lui Israel', 'Kings of Israel'], R: ['Prooroci', 'Prophets'], X: ['Imperii și conducători străini', 'Empires and foreign rulers'], N: ['Noul Testament', 'New Testament'] };
 const CR_CAT = { A: ['confirmat de surse externe', 'confirmed by outside sources'], B: ['calculat din textul biblic', 'calculated from the biblical text'], C: ['reconstrucție academică', 'scholarly reconstruction'], D: ['aproximare / ipoteză', 'approximation / hypothesis'], E: ['disputat / necunoscut', 'disputed / unknown'] };
 function crRange() { return CR.mode === 'g' ? [-60, 2230] : [-2250, 120]; }
 function crX(y) { return 120 + (y - crRange()[0]) * CR.sc; }
@@ -2634,11 +2634,11 @@ function crRender() {
   if (CR.mode === 'm') a += '<i class="cr-bcad" style="left:' + crX(0).toFixed(1) + 'px">' + L('î.Hr. | d.Hr.', 'BC | AD') + '</i>';
   ax.style.width = W + 'px'; ax.innerHTML = a;
   // groups
-  const its = crItems(), order = CR.mode === 'g' ? ['E', 'P'] : ['E', 'W', 'P', 'U', 'J', 'I', 'R', 'X', 'N'];
+  const its = crItems(), order = ['*'];
   let h = '';
   order.forEach(gk => {
     const lanes = [], els = [];
-    its.map((it, i) => i).filter(i => its[i][5] === gk).sort((a, b) => crA(its[a], its[a][2]) - crA(its[b], its[b][2])).forEach(i => { const it = its[i];
+    its.map((it, i) => i).sort((a, b) => crA(its[a], its[a][2]) - crA(its[b], its[b][2])).forEach(i => { const it = its[i];
       const s = crA(it, it[2]), e = crA(it, it[3]), x0 = crX(s), x1 = Math.max(crX(e), x0 + (it[4] === 'e' ? 0 : 5));
       const lw = Math.min(176, it[0].length * 6.6 + 14), ev = it[4] === 'e';
       const inside = !ev && x1 - x0 > lw;
